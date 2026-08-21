@@ -17,12 +17,15 @@ runs.
 
 - `us_income_tax_rates_1862-2025_1.html` — **the deliverable.** ~624 lines. The
   entire application. This is the file you edit.
-- `Historical_Income_Tax_Rates_and_Brackets_18622025.csv` — the original source
-  data (2,532 rows: one row per bracket per filing status per year). The HTML's
-  embedded JSON was derived from this. Treat the CSV as the upstream source of
-  truth for rates/brackets; the HTML's JSON is a processed copy.
-- `tax_rate_annotations.md` — *(may not be in this folder yet; it came from a
-  companion chat.)* A researched writeup of the historical context behind every
+- `Historical Income Tax Rates and Brackets 1862-2025.csv` — the original source
+  data (2,533 rows: one row per bracket per filing status per year). Note the
+  spaces in the filename — quote it in shell commands. The HTML's embedded JSON
+  was derived from this. Treat the CSV as the upstream source of truth for
+  rates/brackets; the HTML's JSON is a processed copy. The CSV covers 163
+  distinct years, while the JSON has 164 year objects: the JSON carries explicit
+  `hasTax: false` placeholders for the no-tax gap years, which the CSV simply
+  omits.
+- `tax_rate_annotations.md` — a researched writeup of the historical context behind every
   significant rate change (wars, major Revenue Acts, Reagan/TRA-86, TCJA, etc.),
   with an "after-effects" note for each and a shortlist of six "headline"
   annotations. **Not yet integrated into the chart.** See "Roadmap" below.

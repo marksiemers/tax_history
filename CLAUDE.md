@@ -29,6 +29,9 @@ runs.
   significant rate change (wars, major Revenue Acts, Reagan/TRA-86, TCJA, etc.),
   with an "after-effects" note for each and a shortlist of six "headline"
   annotations. **Not yet integrated into the chart.** See "Roadmap" below.
+- `TODO.md` — outstanding review findings (two confirmed bugs, plus structural
+  and accessibility work). **Read it before editing the HTML** — it has a
+  suggested ordering, and two items are best done before other work lands.
 
 ## Architecture of the HTML file
 

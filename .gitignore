@@ -1,0 +1,8 @@
+# Windows NTFS alternate data streams, materialized as files when copied into WSL
+*:Zone.Identifier
+*:mshield
+
+# Editor / OS cruft
+.DS_Store
+Thumbs.db
+*.swp

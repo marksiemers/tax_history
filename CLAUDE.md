@@ -1,0 +1,171 @@
+# CLAUDE.md — U.S. Income Tax History Visualizer
+
+Context and working notes for Claude Code agents. Read this before editing anything.
+
+## What this project is
+
+A single, self-contained interactive web page charting U.S. federal individual
+income tax rates and brackets across all 164 years from **1862 to 2025**. It is
+built from a historical rates CSV plus a CPI series used to convert historical
+dollar thresholds into present-day (2026) dollars.
+
+The whole app — markup, CSS, data, and logic — lives in **one HTML file**. There
+is no build step, no framework, and no server. Open the file in a browser and it
+runs.
+
+## Files
+
+- `us_income_tax_rates_1862-2025_1.html` — **the deliverable.** ~624 lines. The
+  entire application. This is the file you edit.
+- `Historical_Income_Tax_Rates_and_Brackets_18622025.csv` — the original source
+  data (2,532 rows: one row per bracket per filing status per year). The HTML's
+  embedded JSON was derived from this. Treat the CSV as the upstream source of
+  truth for rates/brackets; the HTML's JSON is a processed copy.
+- `tax_rate_annotations.md` — *(may not be in this folder yet; it came from a
+  companion chat.)* A researched writeup of the historical context behind every
+  significant rate change (wars, major Revenue Acts, Reagan/TRA-86, TCJA, etc.),
+  with an "after-effects" note for each and a shortlist of six "headline"
+  annotations. **Not yet integrated into the chart.** See "Roadmap" below.
+
+## Architecture of the HTML file
+
+Rough top-to-bottom layout:
+
+1. `<head>` — Google Fonts (Fraunces, Inter, Spline Sans Mono) and **Chart.js
+   4.4.1 from a CDN**. Chart.js is the only external runtime dependency.
+2. `<style>` — all CSS, driven by CSS custom properties (design tokens) declared
+   in `:root`. Newspaper/ledger aesthetic.
+3. Markup — masthead, a controls bar, a summary stat strip, the chart, the
+   ledger table, a per-year bracket-detail modal, and a footer.
+4. `<script id="taxdata" type="application/json">…</script>` (around line 269) —
+   the entire dataset as one JSON blob.
+5. A final `<script>` (the last `<script>` tag in the file) — all the app logic:
+   parses the JSON, renders the chart and table, and wires up every control.
+
+### How the file was originally generated
+
+The page was built from a template with a `__DATA__` placeholder, and the JSON
+was injected via a small Python step to avoid escaping issues. You do **not**
+need to reproduce that pipeline to make edits — edit the HTML directly. Just be
+aware the committed file is the fully-assembled output, and the `<script
+id="taxdata">` block is where the data lives inline.
+
+## Data shape
+
+The embedded JSON is:
+
+```
+{
+  "meta": {
+    "cpiNow": 1004.8,
+    "cpiBaseYear": 2026,
+    "cpiSource": "Federal Reserve Bank of Minneapolis (CPI, 1967=100 base; pre-1913 estimated)",
+    "taxSource": "Tax Foundation / IRS historical rates, 1862-2025",
+    "minYear": 1862,
+    "maxYear": 2025
+  },
+  "years": [
+    {
+      "year": 1913,
+      "hasTax": true,          // false for 1873–1893, 1895–1912 (no federal income tax)
+      "note": "…governing law / caveats…",
+      "cpi": 29.7,
+      "mult": 33.832,          // multiplier: historical $ × mult ≈ 2026 $
+      "statuses": {
+        "mfj":    { … },       // married filing jointly
+        "mfs":    { … },       // married filing separately
+        "single": { … },
+        "hoh":    { … }        // head of household
+      }
+    },
+    …
+  ]
+}
+```
+
+Each status object:
+
+```
+{
+  "topRate": 7.0,             // %
+  "bottomRate": 1.0,          // %
+  "topThreshold": 500000,     // $ (nominal, historical) where the top bracket starts
+  "topThresholdReal": 16915825, // $ in 2026 dollars (topThreshold × mult)
+  "numBrackets": 7,
+  "brackets": [ { "rate": 1.0, "threshold": 0 }, … ]  // full schedule, ascending
+}
+```
+
+For no-tax years, `hasTax` is `false` and `statuses` is `{}`.
+
+**If you change rate/bracket data:** update the CSV *and* the embedded JSON
+together, and recompute `topThresholdReal` (= `topThreshold` × `mult`) so nominal
+and real dollars stay consistent. The `mult`/`cpi` values are price-level only;
+pre-1913 CPI figures are historical reconstructions and are illustrative, not
+exact — keep the footer caveat if you touch this.
+
+## Features (and the DOM hooks that drive them)
+
+- **Chart** (`#chart`, Chart.js canvas) with two metrics toggled via `#metric`:
+  (a) top & bottom marginal rate by year, and (b) where the top bracket *begins*,
+  in 2026 dollars, on a log scale. Shaded bands mark the no-income-tax stretch.
+- **Filing-status selector** `#status` (mfj / single / mfs / hoh) — drives both
+  chart and table.
+- **Year-range slider** — dual inputs `#lo` / `#hi` with readouts `#lo-val` /
+  `#hi-val`.
+- **Summary stat strip** `#stats` — recomputes highs/lows for the current status
+  and range.
+- **Ledger table** `#tbody` — sortable (click a `<th>`; sort key is `data-k`,
+  type is `data-t` = `n`|`s`), filterable (search box matches year or law name),
+  and paginated via `#pager` with a page-size control `#per` (default 10) and a
+  row counter `#count`.
+- **Bracket-detail modal** `#modal` — clicking a table row opens the full bracket
+  schedule for that year; filing status can be switched inside the modal.
+  Entry point: `openModal(...)`.
+- **Exports** — `#dl-csv` (one row per bracket per status, plus a 2026-dollar
+  column) and `#dl-json` (the full nested dataset). Both run client-side.
+
+Key JS functions to know: `openModal(...)`, `renderPager(...)`. The final script
+tag is self-contained; search it for these names.
+
+## Conventions / constraints
+
+- **Keep it single-file and dependency-light.** The value of this artifact is
+  that it's one portable HTML file. Don't introduce a bundler, npm packages, or a
+  framework unless explicitly asked.
+- **Chart.js is loaded from a CDN**, so the chart needs internet to draw. The
+  table, filtering, sorting, and exports all work fully offline. Preserve that
+  split — don't make core table features depend on the network.
+- **No browser storage** was used and none is needed.
+- **Styling goes through the CSS variables** in `:root`. Reuse the existing
+  tokens (e.g. `--ink`, `--oxblood`, `--pine`, `--paper`) rather than hardcoding
+  new colors, and keep the three-font system.
+- **Accessibility:** controls use `aria-*` attributes and roles; preserve them
+  when editing markup.
+
+## How to verify a change
+
+There are no automated tests. The prior workflow validated edits by:
+
+1. Syntax-checking the app script: extract the last `<script>` block to a `.js`
+   file and run `node --check` on it.
+2. Running the whole script under a minimal jsdom-style DOM stub in Node to catch
+   missing element IDs / reference errors at init.
+3. Exercising interactive paths headlessly (change page size, paginate, open the
+   modal, switch status inside it, close) and asserting the DOM updated.
+
+Reproducing at least steps 1–2 after any JS change is recommended, plus a manual
+open in a browser to eyeball the chart (which needs the CDN).
+
+## Roadmap / open threads
+
+- **Timeline annotations (planned, not done).** `tax_rate_annotations.md` has the
+  researched content. The intended next step is to surface these as annotations
+  on the chart — the six headline beats are: 1913 (16th Amendment), 1918 (WWI
+  peak 77%), 1925 (Mellon low 25%), 1944 (all-time peak 94%), 1964–65
+  (Kennedy–Johnson cut 91%→70%), 1988 (TRA-86 low, 2 brackets). The owner wanted
+  to do more research before wiring these in, and asked that causal claims stay
+  framed as "coincided with," not "caused."
+- Possible extensions discussed: a second chart line comparing two filing
+  statuses at once; a separate bracket-count line (50+ in 1918 → 2 in 1988 → 7
+  today).

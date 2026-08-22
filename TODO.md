@@ -5,16 +5,16 @@ below was **observed**, not inferred: the page was booted under jsdom with a
 stubbed Chart.js and driven through its interactions. Line numbers refer to
 `us_income_tax_rates_1862-2025_1.html` as of commit `7fd7139`.
 
-**Fixed so far:** #1, #2, and #13 (2026-08-21). Everything else is outstanding.
+**Fixed so far:** #1, #2, #3, #5, #6, and #13 (2026-08-21). Everything else is
+outstanding.
 
 ## Suggested order
 
 1. ~~**Bugs** (#1, #2)~~ — done.
-2. **#3 (pretty-print the JSON)** — do this *before* any data edit, since it
-   changes how every future data diff reads.
-3. **#5 (consolidate status metadata)** — do this *before* the chart-annotations
-   feature, which will otherwise add a fifth copy of the filing-status list.
-4. Everything else as convenient.
+2. ~~**#3 (pretty-print the JSON)**~~ — done.
+3. ~~**#5 (consolidate status metadata)**~~ — done, together with its companion
+   #6. The annotations feature is now unblocked.
+4. Everything else as convenient: #4, #7, #8, #9, #10, #11, #12.
 
 ---
 
@@ -74,7 +74,7 @@ A `.chart-fallback` style was added next to `.chart-box`.
 
 ## Structure / maintainability
 
-### 3. The 376 KB single-line JSON blob makes git diffs useless
+### 3. The 376 KB single-line JSON blob makes git diffs useless — **FIXED**
 
 **Where:** line 269 — 375,984 characters on one line.
 
@@ -82,8 +82,11 @@ Any data change rewrites that single line, so diffs show "1 line changed" with n
 visible detail, and concurrent edits conflict irreconcilably. Now that the
 project is version-controlled this is the highest-value structural change.
 
-**Fix:** pretty-print the embedded JSON — one line per year object is enough to
-make data edits reviewable. Costs some file size; gzip recovers most of it.
+**Fix (applied):** the blob is pretty-printed — one line per year object, and
+within each year one line per filing status, so a changed bracket shows as a
+single line naming both the year and the status. 1 line → 676; the file grew
+3.9 KB (~1%). Verified as a pure reformat: the reparsed data compares equal to
+the original including key order. `npm test` asserts it stays pretty-printed.
 
 ### 4. The chart is destroyed and rebuilt on every slider tick
 
@@ -97,24 +100,35 @@ interaction on the page.
 **Fix:** mutate `chart.data` in place and call `chart.update('none')`; rebuild
 the instance only when `state.metric` changes.
 
-### 5. Filing-status metadata is duplicated in four places
+### 5. Filing-status metadata is duplicated in four places — **FIXED**
 
 - `labelStatus()` (line 419) and `STLABEL` (line 495) are byte-identical maps.
 - The order `['mfj','single','mfs','hoh']` is spelled out separately in
   `firstStatus` (497) and `renderModal` (~513).
 - `exportCSV` (541) repeats it in a *different* order, with display names.
 
-**Fix:** one `STATUSES` table near the top of the script (key, short label, long
-label, canonical order); derive all four call sites from it. Worth doing before
-the annotations work adds more surface area.
+**Fix (applied):** one `STATUSES` array near the top of the script (key, short
+label, long label, CSV display name, in the canonical UI order), plus the `ST`
+lookup and `ST_KEYS` order derived from it. All four call sites now read from
+it.
 
-### 6. `tableRows()` reads its sort type out of the DOM
+**Behaviour note:** `exportCSV` used to emit statuses in `mfj, mfs, single, hoh`
+order; it now follows the canonical `mfj, single, mfs, hoh`. Verified that the
+export still contains exactly the same 9,049 rows — only their order within a
+year changed.
+
+### 6. `tableRows()` reads its sort type out of the DOM — **FIXED**
 
 **Where:** line 434 — `document.querySelector('th[data-k="'+k+'"]').dataset.t`.
 
 Pulling config out of the DOM is what turned finding #1 from a harmless no-op
-into a crash. A small `COLUMNS` config object (key → type) would decouple sort
-behavior from markup, and is a natural companion change to #5.
+into a crash.
+
+**Fix (applied):** a `COLUMNS` object (column key → `n`|`s`) next to `STATUSES`.
+`tableRows()` reads the sort type from it, the sort handler ignores any header
+whose `data-k` is not in it (so an unknown key can no longer poison the sort
+state), and the now-dead `data-t` attributes are gone from the markup. `npm test`
+asserts `COLUMNS` and the `<th data-k>` set stay in agreement.
 
 ---
 

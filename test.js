@@ -107,6 +107,53 @@ function fire(window, el, type) {
   el.dispatchEvent(new window.Event(type, { bubbles: true }));
 }
 
+/* ---------- static invariants: markup and config must not drift apart ---------- */
+
+section('embedded data');
+{
+  const blob = src.match(/<script id="taxdata" type="application\/json">([\s\S]*?)<\/script>/);
+  ok(!!blob, 'taxdata block is present');
+  let data = null;
+  try { data = JSON.parse(blob[1]); ok(true, 'taxdata parses as JSON'); }
+  catch (e) { ok(false, 'taxdata parses as JSON (' + e.message + ')'); }
+  if (data) {
+    ok(data.years.length === 164, 'covers 164 years (' + data.years.length + ')');
+    const lines = blob[1].trim().split('\n').length;
+    // Finding #3: a one-line blob makes every data diff unreviewable.
+    ok(lines > 100, 'taxdata is pretty-printed, not one line (' + lines + ' lines)');
+    const bad = data.years.filter(y => y.hasTax && Object.keys(y.statuses).length === 0);
+    ok(bad.length === 0, 'every hasTax year carries statuses (' + bad.length + ' bad)');
+    const gap = data.years.filter(y => !y.hasTax);
+    ok(gap.length > 0 && gap.every(y => Object.keys(y.statuses).length === 0), 'no-tax years carry no statuses');
+  }
+}
+
+section('config / markup agreement');
+{
+  // Finding #6: sort types used to be read out of the DOM. COLUMNS owns them
+  // now, so the two lists must still name the same columns.
+  const cols = APP.match(/const COLUMNS = \{([\s\S]*?)\};/);
+  ok(!!cols, 'COLUMNS table is declared');
+  const colKeys = cols ? [...cols[1].matchAll(/(\w+)\s*:/g)].map(m => m[1]).sort() : [];
+  const headKeys = [...src.matchAll(/<th data-k="(\w+)"/g)].map(m => m[1]).sort();
+  ok(headKeys.length === 7, 'ledger declares 7 sortable headers (' + headKeys.length + ')');
+  ok(JSON.stringify(colKeys) === JSON.stringify(headKeys),
+     'COLUMNS matches the ledger headers (' + colKeys.join(',') + ' vs ' + headKeys.join(',') + ')');
+  ok(!/<th[^>]*data-t=/.test(src), 'no stale data-t attributes left in the markup');
+
+  // Finding #5: the filing-status list used to exist in four places.
+  const sts = APP.match(/const STATUSES = \[([\s\S]*?)\];/);
+  ok(!!sts, 'STATUSES table is declared');
+  const stKeys = sts ? [...sts[1].matchAll(/key:'(\w+)'/g)].map(m => m[1]) : [];
+  // scope to the #status group -- the metric toggle uses data-v too
+  const stGroup = src.match(/<div class="segmented" id="status"[\s\S]*?<\/div>/)[0];
+  const btnKeys = [...stGroup.matchAll(/<button data-v="(\w+)"/g)].map(m => m[1]);
+  ok(JSON.stringify(stKeys) === JSON.stringify(btnKeys),
+     'STATUSES order matches the selector buttons (' + stKeys.join(',') + ' vs ' + btnKeys.join(',') + ')');
+  ok(!/\['mfj','single','mfs','hoh'\]/.test(APP), 'no hardcoded status-order array left in the script');
+  ok((APP.match(/married filing jointly/g) || []).length === 1, 'the long status labels are spelled once');
+}
+
 /* ---------- offline: no Chart global, as when the CDN is unreachable ---------- */
 
 section('offline (no Chart.js)');
@@ -192,6 +239,21 @@ section('online (Chart.js stubbed)');
   ok(document.querySelector('#tbody tr').textContent !== first, 'next page shows different rows');
   click(window, document.querySelector('#pager button[data-pg="first"]'));
   ok(document.querySelector('#tbody tr').textContent === first, 'first page returns to the top');
+
+  section('every status and column');
+  // Each filing status must render, and each column must sort both ways
+  // without throwing -- the sort type now comes from COLUMNS, not the DOM.
+  document.querySelectorAll('#table thead th[data-k]').forEach(col => {
+    click(window, col);
+    click(window, col);
+    ok(clean(errors) && rows(document) > 0,
+       'sorting by ' + col.dataset.k + ' works (' + rows(document) + ' rows)');
+  });
+  document.querySelectorAll('#status button').forEach(btn => {
+    click(window, btn);
+    ok(clean(errors) && rows(document) > 0,
+       'status ' + btn.dataset.v + ' renders (' + rows(document) + ' rows)');
+  });
 
   section('controls');
   const single = document.querySelector('#status button[data-v="single"]');

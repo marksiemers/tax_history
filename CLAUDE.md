@@ -47,8 +47,11 @@ Rough top-to-bottom layout:
    in `:root`. Newspaper/ledger aesthetic.
 3. Markup — masthead, a controls bar, a summary stat strip, the chart, the
    ledger table, a per-year bracket-detail modal, and a footer.
-4. `<script id="taxdata" type="application/json">…</script>` (around line 269) —
-   the entire dataset as one JSON blob.
+4. `<script id="taxdata" type="application/json">…</script>` (around line 271) —
+   the entire dataset. It is **pretty-printed on purpose**: one line per year
+   object, and within a year one line per filing status. That keeps a data edit
+   readable as a diff — a changed bracket shows up as a single line naming both
+   the year and the status. Don't re-minify it.
 5. A final `<script>` (the last `<script>` tag in the file) — all the app logic:
    parses the JSON, renders the chart and table, and wires up every control.
 
@@ -109,7 +112,8 @@ Each status object:
 For no-tax years, `hasTax` is `false` and `statuses` is `{}`.
 
 **If you change rate/bracket data:** update the CSV *and* the embedded JSON
-together, and recompute `topThresholdReal` (= `topThreshold` × `mult`) so nominal
+together (the JSON is pretty-printed, so this is a reviewable diff — keep it
+that way), and recompute `topThresholdReal` (= `topThreshold` × `mult`) so nominal
 and real dollars stay consistent. The `mult`/`cpi` values are price-level only;
 pre-1913 CPI figures are historical reconstructions and are illustrative, not
 exact — keep the footer caveat if you touch this.
@@ -126,7 +130,8 @@ exact — keep the footer caveat if you touch this.
 - **Summary stat strip** `#stats` — recomputes highs/lows for the current status
   and range.
 - **Ledger table** `#tbody` — sortable (click a `<th>`; sort key is `data-k`,
-  type is `data-t` = `n`|`s`), filterable (search box matches year or law name),
+  sort type comes from the `COLUMNS` table in the script, not the markup),
+  filterable (search box matches year or law name),
   and paginated via `#pager` with a page-size control `#per` (default 10) and a
   row counter `#count`.
 - **Bracket-detail modal** `#modal` — clicking a table row opens the full bracket
@@ -135,8 +140,18 @@ exact — keep the footer caveat if you touch this.
 - **Exports** — `#dl-csv` (one row per bracket per status, plus a 2026-dollar
   column) and `#dl-json` (the full nested dataset). Both run client-side.
 
-Key JS functions to know: `openModal(...)`, `renderPager(...)`. The final script
-tag is self-contained; search it for these names.
+Key JS names to know: `STATUSES`/`ST`/`ST_KEYS` (the filing-status table —
+key, short label, long label, CSV display name, in canonical order), `COLUMNS`
+(ledger column → sort type), `safeBuildChart(...)`, `openModal(...)`,
+`renderPager(...)`. The final script tag is self-contained; search it for these
+names.
+
+**`STATUSES` and `COLUMNS` are the single source of truth.** Every status label,
+the canonical status order, and every column sort type is derived from them —
+don't reintroduce a local copy. Two markup lists have to stay in step with
+`STATUSES` and `COLUMNS`: the `#status` buttons (`data-v`) and the ledger's
+`<th data-k>` set. `npm test` asserts both agreements statically, so drift fails
+the suite rather than surfacing as a subtly wrong label.
 
 ## Conventions / constraints
 

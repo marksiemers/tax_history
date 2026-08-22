@@ -27,8 +27,9 @@ runs.
   omits.
 - `tax_rate_annotations.md` — a researched writeup of the historical context behind every
   significant rate change (wars, major Revenue Acts, Reagan/TRA-86, TCJA, etc.),
-  with an "after-effects" note for each and a shortlist of six "headline"
-  annotations. **Not yet integrated into the chart.** See "Roadmap" below.
+  with an "after-effects" note for each. **The six headline beats are now wired
+  into the chart** as `MILESTONES`; the rest of the file is the reserve of
+  researched copy to draw on, and the record of which claims are contested.
 - `TODO.md` — outstanding review findings (structural, polish, and accessibility
   work; the two confirmed bugs are now fixed). **Read it before editing the
   HTML** — it has a suggested ordering, and two items are best done before other
@@ -152,6 +153,14 @@ exact — keep the footer caveat if you touch this.
   Entry point: `openModal(...)`.
 - **Exports** — `#dl-csv` (one row per bracket per status, plus a 2026-dollar
   column) and `#dl-json` (the full nested dataset). Both run client-side.
+- **Milestones** — six historical beats from `MILESTONES`, drawn on the chart by
+  the inline `milestonePlugin` (dashed brass rule + numbered badge) and listed
+  under it as `#milestones`, a numbered strip of buttons. Selecting one opens
+  that year's modal, where the longer note appears in `#modal-milestone`.
+  Toggled by `#annot`. The strip is DOM rather than canvas **on purpose**, so
+  the milestones still read when the CDN is unreachable — same split as the
+  ledger. Beats outside the current year range dim rather than disappear, so the
+  numbering keeps matching the chart badges.
 
 Key JS names to know: `STATUSES`/`ST`/`ST_KEYS` (the filing-status table —
 key, short label, long label, CSV display name, in canonical order), `COLUMNS`
@@ -256,13 +265,19 @@ ESM-only and fail with `ERR_REQUIRE_ESM`.
 
 ## Roadmap / open threads
 
-- **Timeline annotations (planned, not done).** `tax_rate_annotations.md` has the
-  researched content. The intended next step is to surface these as annotations
-  on the chart — the six headline beats are: 1913 (16th Amendment), 1918 (WWI
-  peak 77%), 1925 (Mellon low 25%), 1944 (all-time peak 94%), 1964–65
-  (Kennedy–Johnson cut 91%→70%), 1988 (TRA-86 low, 2 brackets). The owner wanted
-  to do more research before wiring these in, and asked that causal claims stay
-  framed as "coincided with," not "caused."
-- Possible extensions discussed: a second chart line comparing two filing
-  statuses at once; a separate bracket-count line (50+ in 1918 → 2 in 1988 → 7
-  today).
+- **Timeline annotations — done.** The six headline beats (1913, 1918, 1925,
+  1944, 1964, 1988) ship as `MILESTONES`. See "Milestones" under Features.
+
+  **The house style is load-bearing.** The owner's standing instruction is that
+  causal claims stay framed as *"coincided with,"* never *"caused"* — most of
+  these episodes are genuinely contested among economists, and
+  `tax_rate_annotations.md` cites across the political spectrum on purpose. If
+  you add or edit milestone copy, keep that voice: `npm test` fails on a
+  wordlist (`caused`, `led to`, `resulted in`, …) and checks the hedged framing
+  is still present. That guard is a reminder, not a substitute for judgement.
+
+- Still open, discussed but not built: annotating more than the six headline
+  beats (the file has content for ~15 episodes); a second chart line comparing
+  two filing statuses at once; a separate bracket-count line (50+ in 1918 → 2 in
+  1988 → 7 today); and the two "structural" annotations the file describes — the
+  1940s bottom-rate step, and the bracket-count collapse.

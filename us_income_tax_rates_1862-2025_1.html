@@ -93,7 +93,25 @@
   .chart-box{position:relative;width:100%;height:390px;background:var(--paper-2);border:1px solid var(--line);padding:14px 12px 8px;margin-bottom:8px}
   .chart-fallback{margin:0;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;
     padding:0 24px;font-family:"Fraunces",serif;font-size:14px;font-style:italic;color:var(--ink-soft)}
-  .chart-note{font-size:12px;color:var(--ink-soft);margin:0 0 34px;font-style:italic;font-family:"Fraunces",serif}
+  .chart-note{font-size:12px;color:var(--ink-soft);margin:0 0 16px;font-style:italic;font-family:"Fraunces",serif}
+  /* With the milestone strip hidden, the note carries the section's bottom
+     spacing on its own. */
+  section:has(#milestones[hidden]) .chart-note{margin-bottom:34px}
+  .milestones{list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0 20px;margin:0 0 30px;padding:0}
+  .milestones li{margin:0}
+  .ms{display:flex;align-items:baseline;gap:9px;width:100%;text-align:left;background:none;cursor:pointer;
+      border:0;border-top:1px solid var(--line);padding:7px 4px;font-family:"Inter",sans-serif;color:var(--ink)}
+  .ms:hover{background:var(--band)}
+  .ms:focus-visible{outline:2px solid var(--pine);outline-offset:-2px}
+  .ms[data-out="true"]{opacity:.42}
+  .ms-n{flex:none;width:17px;height:17px;border-radius:50%;background:var(--brass);color:var(--paper-2);
+        font-family:"Spline Sans Mono",monospace;font-size:10px;display:inline-flex;align-items:center;justify-content:center;
+        transform:translateY(2px)}
+  .ms-y{font-family:"Spline Sans Mono",monospace;font-size:12px;font-weight:500;color:var(--ink-soft);flex:none}
+  .ms-l{font-size:12.5px;line-height:1.35}
+  .modal-milestone{font-size:12.5px;line-height:1.5;color:var(--ink-soft);margin:0 0 14px;padding:10px 12px;
+                   background:var(--paper);border-left:3px solid var(--brass)}
+  .modal-milestone b{color:var(--ink);font-weight:600}
   /* ---- table ---- */
   .table-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:12px;margin-bottom:12px}
   .table-head h2{font-family:"Fraunces",serif;font-weight:500;font-size:22px;margin:0}
@@ -212,6 +230,13 @@
         <span class="rangeval" id="hi-val">2025</span>
       </div>
     </div>
+    <div class="ctrl">
+      <label>Milestones</label>
+      <div class="segmented" id="annot" role="group" aria-label="Chart milestones">
+        <button data-v="on" aria-pressed="true">Show</button>
+        <button data-v="off" aria-pressed="false">Hide</button>
+      </div>
+    </div>
     <div class="exports">
       <button class="btn" id="dl-csv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>CSV</button>
       <button class="btn" id="dl-json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>JSON</button>
@@ -229,6 +254,7 @@
       <canvas id="chart" role="img" aria-label="Line chart of US federal income tax marginal rates by year for the selected filing status."></canvas>
     </div>
     <p class="chart-note" id="chart-note"></p>
+    <ol class="milestones" id="milestones" aria-label="Chart milestones — select one for that year's schedule"></ol>
   </section>
 
   <section aria-label="Data table">
@@ -291,6 +317,7 @@
     </div>
     <div class="modal-chips" id="modal-chips" role="group" aria-label="Filing status"></div>
     <p class="modal-summary" id="modal-summary"></p>
+    <p class="modal-milestone" id="modal-milestone" hidden></p>
     <div class="modal-scroll">
       <table class="brk">
         <thead><tr><th class="num">#</th><th class="num">Marginal rate</th><th class="num">Income over</th><th class="num">Income over ($2026)</th></tr></thead>
@@ -985,6 +1012,7 @@
   const YEARS = DATA.years;
   const NOW = DATA.meta.cpiNow;
   const OX = '#8a2e2e', PINE = '#2f6d5f', INK='#201e18', SOFT='#5b564a', LINE='#c9c2ad', BAND='rgba(180,168,132,.18)';
+  const BRASS = '#9a7a2e';
   document.getElementById('src').innerHTML =
     'Rates: '+DATA.meta.taxSource+'<br>Prices: '+DATA.meta.cpiSource+' · base year '+DATA.meta.cpiBaseYear;
 
@@ -1000,13 +1028,34 @@
   const ST = Object.fromEntries(STATUSES.map(x=>[x.key,x]));
   const ST_KEYS = STATUSES.map(x=>x.key);
 
+  /* The six beats that carry the whole story, from tax_rate_annotations.md.
+     Deliberate house style: these say what a change *coincided with*, never what
+     it caused. Most of these episodes are genuinely contested among economists,
+     and the chart is not the place to adjudicate that -- see the source file,
+     which cites across the spectrum on purpose. Keep new entries in that voice. */
+  const MILESTONES = [
+    { year:1913, label:'Modern income tax begins',
+      detail:'The 16th Amendment, ratified in February 1913, authorised a federal income tax; the Revenue Act of 1913 set rates at 1–7%. Fewer than 1% of households owed anything — a tax on the wealthy rather than a mass tax.' },
+    { year:1918, label:'WWI peak — 77%',
+      detail:'The Revenue Act of 1918 took the top rate to 77% across 56 brackets to finance the war. The sharp depression of 1920–21 that followed is generally attributed to demobilisation and tight money rather than to the tax.' },
+    { year:1925, label:'Mellon cuts — 25%, the interwar low',
+      detail:'Treasury Secretary Andrew Mellon\u2019s cuts under Harding and Coolidge brought the top rate to 25%, where it held until 1931. The decade\u2019s growth — and the 1929 crash that ended it — coincided with these rates; economists still disagree about how much the cuts contributed to either.' },
+    { year:1944, label:'All-time peak — 94%',
+      detail:'The Individual Income Tax Act of 1944 set the highest top rate in U.S. history. The more lasting change was at the bottom: wartime finance and the payroll withholding introduced in 1943 lifted the bottom rate to 23% and pulled tens of millions onto the tax rolls, where they stayed.' },
+    { year:1964, label:'Kennedy–Johnson cut — 91% to 70%',
+      detail:'The Revenue Act of 1964 cut the top rate to 77%, settling at 70% in 1965, where it held for sixteen years. Strong growth followed, coinciding with an expansion already under way and with rising Vietnam and Great Society spending.' },
+    { year:1988, label:'Tax Reform Act of 1986 — 28%, two brackets',
+      detail:'A bipartisan “broaden the base, lower the rates” reform swept away deductions and shelters, leaving just two brackets and the lowest top rate since 1931. That 28% rate now reached well into the upper middle class.' }
+  ];
+  const MS_BY_YEAR = Object.fromEntries(MILESTONES.map((m,i)=>[m.year,{...m,n:i+1}]));
+
   // Ledger column sort types, keyed by the th's data-k. 'n' numeric, 's' string.
   const COLUMNS = {
     year:'n', bottomRate:'n', topRate:'n', numBrackets:'n',
     topThreshold:'n', topThresholdReal:'n', note:'s'
   };
 
-  let state = { status:'mfj', metric:'rates', lo:1862, hi:2025, sortK:'year', sortDir:1, q:'', page:1, perPage:10 };
+  let state = { status:'mfj', metric:'rates', lo:1862, hi:2025, sortK:'year', sortDir:1, q:'', page:1, perPage:10, annot:true };
   let modalState = { year:null, status:'mfj' };
   let lastRows = [], lastFocus = null;
   let chartMetric = null;   // the metric the live chart instance was built for
@@ -1114,6 +1163,48 @@
      datasets, styling and axes) is built once per metric, and everything else
      -- a new year range, a different filing status -- is pushed into the
      existing instance as data. Only a metric change rebuilds. */
+  /* Drawn by hand rather than pulling in chartjs-plugin-annotation: the page's
+     whole point is that it is one file with one runtime dependency. */
+  const milestonePlugin = {
+    id:'milestones',
+    afterDatasetsDraw(c){
+      if(!state.annot) return;
+      const {ctx,chartArea:{top,bottom},scales:{x}}=c;
+      const labels=c.data.labels;
+      ctx.save();
+      MILESTONES.forEach((m,i)=>{
+        const idx=labels.indexOf(m.year); if(idx<0) return;
+        const px=x.getPixelForValue(idx);
+        ctx.strokeStyle=BRASS; ctx.lineWidth=1; ctx.setLineDash([3,3]); ctx.globalAlpha=.55;
+        ctx.beginPath(); ctx.moveTo(px,top+16); ctx.lineTo(px,bottom); ctx.stroke();
+        ctx.setLineDash([]); ctx.globalAlpha=1;
+        ctx.fillStyle=BRASS;
+        ctx.beginPath(); ctx.arc(px,top+8,8,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#f8f6ee'; ctx.font='500 10px "Spline Sans Mono",monospace';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(String(i+1),px,top+8);
+      });
+      ctx.restore();
+    }
+  };
+
+  /* The strip is DOM, not canvas, so the milestones stay readable when the CDN
+     is unreachable and the chart itself cannot draw. */
+  function renderMilestones(){
+    const el=document.getElementById('milestones');
+    el.hidden=!state.annot;
+    if(!state.annot){ el.innerHTML=''; return; }
+    el.innerHTML=MILESTONES.map((m,i)=>{
+      const out = m.year<state.lo || m.year>state.hi;
+      return '<li><button class="ms" data-year="'+m.year+'" data-out="'+out+'"'+
+        (out?' title="Outside the selected year range"':'')+
+        ' aria-label="'+esc(m.year+': '+m.label)+' — open the '+m.year+' bracket schedule">'+
+        '<span class="ms-n" aria-hidden="true">'+(i+1)+'</span>'+
+        '<span class="ms-y">'+m.year+'</span>'+
+        '<span class="ms-l">'+esc(m.label)+'</span></button></li>';
+    }).join('');
+  }
+
   function chartConfig(){
     const recs=YEARS.filter(r=>r.year>=state.lo && r.year<=state.hi);
     const labels=recs.map(r=>r.year);
@@ -1135,7 +1226,7 @@
       type:'line',
       data:{labels:cfg.labels,datasets:cfg.datasets},
       options:baseOpts(cfg.kind),
-      plugins:[bandPlugin]
+      plugins:[bandPlugin,milestonePlugin]
     });
     chartMetric=state.metric;
   }
@@ -1182,7 +1273,8 @@
     if(state.metric==='rates'){
       el.innerHTML='<span class="lg"><span class="swatch" style="background:'+OX+'"></span>Top marginal rate</span>'+
                    '<span class="lg"><span class="swatch dash"></span>Bottom marginal rate</span>'+
-                   '<span class="lg"><span class="swatch" style="background:'+BAND.replace('.18','.6')+';height:12px"></span>No income tax</span>';
+                   '<span class="lg"><span class="swatch" style="background:'+BAND.replace('.18','.6')+';height:12px"></span>No income tax</span>'+
+                   (state.annot?'<span class="lg"><span class="swatch" style="border-top:2px dashed '+BRASS+';height:0"></span>Milestone</span>':'');
     } else {
       el.innerHTML='<span class="lg"><span class="swatch" style="background:'+OX+'"></span>Income where top rate begins, in 2026 dollars</span>';
     }
@@ -1331,6 +1423,10 @@
     }).join('');
     document.getElementById('modal-summary').innerHTML='<b>'+s.numBrackets+'</b> bracket'+(s.numBrackets===1?'':'s')+
       ' · top rate <b>'+pct(s.topRate)+'</b> begins at '+fmtUSD(s.topThreshold)+' <span style="white-space:nowrap">('+fmtUSD(s.topThresholdReal)+' in 2026$)</span>';
+    const ms=MS_BY_YEAR[rec.year];
+    const msEl=document.getElementById('modal-milestone');
+    msEl.hidden=!ms;
+    if(ms) msEl.innerHTML='<b>'+esc(ms.label)+'.</b> '+esc(ms.detail);
     const mult=rec.mult;
     const brs=s.brackets.slice().sort((a,b)=>a.threshold-b.threshold);
     document.getElementById('modal-body').innerHTML=brs.map((b,i)=>
@@ -1363,7 +1459,7 @@
   function exportJSON(){ download('us_income_tax_rates_1862-2025.json',JSON.stringify(DATA,null,2),'application/json'); }
 
   /* ---------- wiring ---------- */
-  function render(){ renderStats(); syncChart(); renderTable(); }
+  function render(){ renderStats(); syncChart(); renderMilestones(); renderTable(); }
 
   document.getElementById('status').addEventListener('click',e=>{
     const b=e.target.closest('button'); if(!b)return;
@@ -1377,6 +1473,19 @@
     [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
     syncChart();
   });
+  document.getElementById('annot').addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b)return;
+    state.annot = b.dataset.v==='on';
+    [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
+    renderMilestones();
+    if(chart) chart.update('none');   // markers are drawn by a plugin; a redraw is enough
+  });
+
+  document.getElementById('milestones').addEventListener('click',e=>{
+    const b=e.target.closest('button[data-year]'); if(!b)return;
+    openModal(+b.dataset.year);
+  });
+
   const lo=document.getElementById('lo'),hi=document.getElementById('hi');
   function syncRange(){
     let a=+lo.value,b=+hi.value; if(a>b){[a,b]=[b,a];}

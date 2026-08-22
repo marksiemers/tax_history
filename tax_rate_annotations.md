@@ -2,6 +2,12 @@
 
 Chart-ready annotations for the top and bottom **marginal** rates in the dataset (Married Filing Jointly used as the canonical schedule, per the chart). Each entry gives the rate movement (exact from the CSV), what drove it, and what happened afterward.
 
+> **Status:** the six "headline" beats at the foot of this file (1913, 1918,
+> 1925, 1944, 1964, 1988) are wired into the chart as `MILESTONES`, with the
+> detail text condensed to two or three sentences each. Everything else here is
+> unused reserve. If you promote another episode, keep the "coincided with"
+> framing — `npm test` enforces it.
+
 **One caution that applies to every entry below:** tax changes almost never happen in isolation. They ride alongside wars, Federal Reserve policy, and the ordinary business cycle, so the "after-effects" are *correlation, not proven causation*. Economists genuinely disagree about how much any single tax change caused the growth, recession, or market move that followed. Where the dispute is sharp, it's flagged.
 
 ---

@@ -86,6 +86,32 @@ const flatten = node => [node, ...(node.children || []).flatMap(flatten)];
     ok(heights.length > 0, 'measured the long-note row too');
   }
 
+  section('milestone markers actually draw on the canvas');
+  {
+    // Read the canvas back: the markers are painted by an inline plugin, so the
+    // only honest check is whether brass pixels appear and disappear with the
+    // toggle. jsdom has no canvas to inspect at all.
+    const brass = () => page.evaluate(() => {
+      const c = document.getElementById('chart');
+      const px = c.getContext('2d').getImageData(0, 0, c.width, Math.round(c.height * 0.2)).data;
+      let hits = 0;
+      for (let i = 0; i < px.length; i += 4) {
+        if (Math.abs(px[i] - 154) < 26 && Math.abs(px[i + 1] - 122) < 26 && Math.abs(px[i + 2] - 46) < 30 && px[i + 3] > 200) hits++;
+      }
+      return hits;
+    });
+    const on = await brass();
+    ok(on > 100, 'brass markers are painted along the top of the chart (' + on + ' px)');
+    await page.click('#annot button[data-v="off"]');
+    await new Promise(r => setTimeout(r, 250));
+    const off = await brass();
+    ok(off === 0, 'and vanish when the toggle is off (' + off + ' px)');
+    await page.click('#annot button[data-v="on"]');
+    await new Promise(r => setTimeout(r, 250));
+    ok(await brass() > 100, 'and come back');
+    ok(await page.$$eval('#milestones button', b => b.length) === 6, 'the strip is restored too');
+  }
+
   section('accessibility tree — ledger (#10)');
   {
     const tree = await page.accessibility.snapshot({ interestingOnly: false });

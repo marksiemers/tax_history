@@ -97,6 +97,10 @@ function boot({ withChart }) {
   return { window, document: window.document, errors };
 }
 
+const YEARSET = new Set(JSON.parse(
+  src.match(/<script id="taxdata" type="application\/json">([\s\S]*?)<\/script>/)[1]
+).years.map(y => y.year));
+
 const clean = errors => errors.length === 0;
 const why = errors => errors.map(String).join('; ');
 const rows = document => document.querySelectorAll('#tbody tr').length;
@@ -194,6 +198,8 @@ section('offline (no Chart.js)');
 
   click(window, document.querySelector('#table thead th[data-k="topRate"]'));
   ok(rows(document) === 10, 'sorting works offline');
+  ok(document.querySelectorAll('#milestones button').length === 6,
+     'the milestone strip reads offline (' + document.querySelectorAll('#milestones button').length + ')');
 
   document.getElementById('search').value = '1944';
   fire(window, document.getElementById('search'), 'input');
@@ -415,6 +421,64 @@ section('online (Chart.js stubbed)');
     const withNotes = [...document.querySelectorAll('#tbody tr .note')].filter(td => td.textContent.trim());
     ok(withNotes.length > 0 && withNotes.every(td => td.querySelector('.clip')),
        'every populated note cell is clipped (' + withNotes.length + ' cells)');
+  }
+
+  section('milestones');
+  {
+    const items = document.querySelectorAll('#milestones button[data-year]');
+    ok(items.length === 6, 'six headline milestones render (' + items.length + ')');
+    const years = [...items].map(b => +b.dataset.year);
+    ok(JSON.stringify(years) === JSON.stringify([1913, 1918, 1925, 1944, 1964, 1988]),
+       'in chronological order (' + years.join(',') + ')');
+    ok([...items].every(b => /\d{4}/.test(b.getAttribute('aria-label') || '')), 'each names its year for assistive tech');
+    ok([...items].every(b => YEARSET.has(+b.dataset.year)), 'every milestone year exists in the data');
+
+    // out-of-range beats dim rather than vanish, so the numbering keeps matching the chart
+    const hi = document.getElementById('hi');
+    hi.value = '1950'; fire(window, hi, 'input');
+    const dimmed = [...document.querySelectorAll('#milestones button')].filter(b => b.dataset.out === 'true');
+    ok(dimmed.length === 2 && dimmed.every(b => +b.dataset.year > 1950),
+       'beats outside the year range are marked (' + dimmed.map(b => b.dataset.year).join(',') + ')');
+    hi.value = '2025'; fire(window, hi, 'input');
+
+    // a milestone opens that year's schedule, and the detail travels with it
+    click(window, document.querySelector('#milestones button[data-year="1944"]'));
+    ok(document.getElementById('modal').hidden === false, 'selecting a milestone opens that year');
+    ok(document.getElementById('modal-year').textContent === '1944', 'the right year (' + document.getElementById('modal-year').textContent + ')');
+    const note = document.getElementById('modal-milestone');
+    ok(note.hidden === false, 'the milestone note shows in the modal');
+    ok(/1943|94/.test(note.textContent), 'and carries the detail text');
+    click(window, document.getElementById('modal-close'));
+
+    // pick an explicit non-milestone tax year: earlier sections leave the sort
+    // in a state where page 1 can be all no-tax rows, which have no button
+    document.getElementById('search').value = '1945';
+    fire(window, document.getElementById('search'), 'input');
+    click(window, document.querySelector('#tbody tr.taxrow[data-year="1945"] .expand'));
+    ok(document.getElementById('modal-year').textContent === '1945', 'opened a non-milestone year');
+    ok(document.getElementById('modal-milestone').hidden === true, 'a non-milestone year hides the note');
+    click(window, document.getElementById('modal-close'));
+    document.getElementById('search').value = '';
+    fire(window, document.getElementById('search'), 'input');
+
+    click(window, document.querySelector('#annot button[data-v="off"]'));
+    ok(document.getElementById('milestones').hidden === true, 'the toggle hides the strip');
+    ok(document.querySelectorAll('#milestones button').length === 0, 'and empties it');
+    click(window, document.querySelector('#annot button[data-v="on"]'));
+    ok(document.querySelectorAll('#milestones button').length === 6, 'and brings it back');
+  }
+
+  section('milestone house style');
+  {
+    // The owner's standing instruction: these episodes are contested, so the
+    // copy says what a change coincided with, never what it caused.
+    const block = APP.match(/const MILESTONES = \[([\s\S]*?)\n  \];/);
+    ok(!!block, 'MILESTONES table is declared');
+    const text = block ? block[1] : '';
+    const banned = ['caused', 'led to', 'resulted in', 'because of', 'thanks to', 'produced the'];
+    const hits = banned.filter(w => new RegExp('\\b' + w + '\\b', 'i').test(text));
+    ok(hits.length === 0, 'no causal claims in the milestone copy (' + (hits.join(', ') || 'none') + ')');
+    ok(/coincid|attributed|disagree|alongside/i.test(text), 'the hedged framing is present');
   }
 
   section('controls');

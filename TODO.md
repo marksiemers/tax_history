@@ -5,8 +5,8 @@ below was **observed**, not inferred: the page was booted under jsdom with a
 stubbed Chart.js and driven through its interactions. Line numbers refer to
 `us_income_tax_rates_1862-2025_1.html` as of commit `7fd7139`.
 
-**Fixed so far:** #1, #2, #3, #4, #5, #6, #7, and #13 (2026-08-21). Still
-outstanding: #8, #9, #10, #11, #12.
+**Fixed so far:** #1, #2, #3, #4, #5, #6, #7, and #13 (2026-08-21). #8 is
+closed as a decision, no code change. Still outstanding: #9, #10, #11, #12.
 
 ## Suggested order
 
@@ -14,8 +14,7 @@ outstanding: #8, #9, #10, #11, #12.
 2. ~~**#3 (pretty-print the JSON)**~~ — done.
 3. ~~**#5 (consolidate status metadata)**~~ — done, together with its companion
    #6. The annotations feature is now unblocked.
-4. ~~#4, #7~~ — done. Still open: #8 (a decision), #9, and the accessibility
-   items #10–#12.
+4. ~~#4, #7~~ — done. Still open: #9 and the accessibility items #10–#12.
 
 ---
 
@@ -153,18 +152,44 @@ to the largest, so the axis now labels up to `$300M` and cannot silently fall
 behind a data change again. `npm test` asserts the top labelled tick clears the
 data maximum.
 
-### 8. Exports ignore the active filters
+### 8. Exports ignore the active filters — **CLOSED, working as intended**
 
 `exportCSV` / `exportJSON` always emit the full dataset regardless of the current
 year range, filing status, or search query. This may well be intended ("export
 the whole thing"), but it's the kind of mismatch users report as a bug.
 
-**Decision needed:** leave as-is, or export the current view? A second button, or
-a note on the button, would also resolve it.
+**Decision (2026-08-21, owner):** leave as-is. The exports are meant to hand
+over the whole dataset, not the current view. No code change. If this resurfaces
+as user confusion, the cheap fix is wording on the button rather than
+filter-aware exports.
 
 ### 9. No SRI hash on the Chart.js CDN tag
 
 **Where:** line 10. Add `integrity` + `crossorigin` to pin the delivered file.
+
+The hash is verified and ready to use — computed from a fresh download of
+`https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js` (205,125
+bytes, banner reads `Chart.js v4.4.1`) and confirmed byte-identical to the value
+cdnjs publishes at `api.cdnjs.com/libraries/Chart.js/4.4.1?fields=sri`:
+
+```
+sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG
+sha512-ZwR1/gSZM3ai6vCdI+LVF1zSq/5HznD3ZSTk7kajkaj4D292NLuduDCO1c/NT8Id+jE58KYLKT7hXnbtryGmMg==
+```
+
+Either digest is fine; SRI accepts one or several. The tag becomes:
+
+```html
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"
+        integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG"
+        crossorigin="anonymous"></script>
+```
+
+Note the interaction with #2: a failed integrity check means the browser refuses
+to execute the file, so `Chart` is undefined — which is exactly the case
+`syncChart()` already handles. The page degrades to the offline placeholder
+rather than breaking. **If the pinned version is ever bumped, the hash must be
+recomputed or the chart silently stops loading.**
 
 ---
 

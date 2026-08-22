@@ -5,8 +5,9 @@ below was **observed**, not inferred: the page was booted under jsdom with a
 stubbed Chart.js and driven through its interactions. Line numbers refer to
 `us_income_tax_rates_1862-2025_1.html` as of commit `7fd7139`.
 
-**Fixed so far:** #1, #2, #3, #4, #5, #6, #7, and #13 (2026-08-21). #8 is
-closed as a decision, no code change. Still outstanding: #9, #10, #11, #12.
+**Fixed so far:** #1, #2, #3, #4, #5, #6, #7, #9, and #13 (2026-08-21). #8 is
+closed as a decision, no code change. Still outstanding: the accessibility items
+#10, #11, #12.
 
 ## Suggested order
 
@@ -14,7 +15,7 @@ closed as a decision, no code change. Still outstanding: #9, #10, #11, #12.
 2. ~~**#3 (pretty-print the JSON)**~~ — done.
 3. ~~**#5 (consolidate status metadata)**~~ — done, together with its companion
    #6. The annotations feature is now unblocked.
-4. ~~#4, #7~~ — done. Still open: #9 and the accessibility items #10–#12.
+4. ~~#4, #7, #9~~ — done. Still open: the accessibility items #10–#12.
 
 ---
 
@@ -163,11 +164,17 @@ over the whole dataset, not the current view. No code change. If this resurfaces
 as user confusion, the cheap fix is wording on the button rather than
 filter-aware exports.
 
-### 9. No SRI hash on the Chart.js CDN tag
+### 9. No SRI hash on the Chart.js CDN tag — **FIXED**
 
 **Where:** line 10. Add `integrity` + `crossorigin` to pin the delivered file.
 
-The hash is verified and ready to use — computed from a fresh download of
+**Fix (applied):** the tag now carries the sha384 digest below, plus
+`crossorigin="anonymous"` (required — without CORS the browser cannot read the
+response well enough to verify it) and `referrerpolicy="no-referrer"`. `npm test`
+asserts the tag keeps its integrity and crossorigin attributes and stays pinned
+to the version the hash was computed from.
+
+The hash was verified before use — computed from a fresh download of
 `https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js` (205,125
 bytes, banner reads `Chart.js v4.4.1`) and confirmed byte-identical to the value
 cdnjs publishes at `api.cdnjs.com/libraries/Chart.js/4.4.1?fields=sri`:

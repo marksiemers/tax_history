@@ -110,6 +110,22 @@ function fire(window, el, type) {
 
 /* ---------- static invariants: markup and config must not drift apart ---------- */
 
+section('Chart.js CDN tag');
+{
+  // Pinned deliberately. Changing the version means recomputing the SRI hash
+  // (cdnjs publishes it at api.cdnjs.com/libraries/Chart.js/<v>?fields=sri);
+  // this constant exists so a bump fails here instead of silently shipping a
+  // stale hash, which would stop the chart loading with no other symptom.
+  const CHART_VERSION = '4.4.1';
+  const tag = src.match(/<script[^>]*cdnjs[^>]*><\/script>/);
+  ok(!!tag, 'Chart.js is loaded from the CDN');
+  const t = tag ? tag[0] : '';
+  ok(t.includes('/Chart.js/' + CHART_VERSION + '/chart.umd.js'),
+     'pinned to Chart.js ' + CHART_VERSION + ' (recompute the SRI hash if you bump this)');
+  ok(/integrity="sha(256|384|512)-[A-Za-z0-9+/=]+"/.test(t), 'tag carries an SRI integrity hash');
+  ok(/crossorigin="anonymous"/.test(t), 'tag sets crossorigin, without which SRI cannot verify');
+}
+
 section('embedded data');
 {
   const blob = src.match(/<script id="taxdata" type="application\/json">([\s\S]*?)<\/script>/);

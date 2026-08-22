@@ -170,7 +170,12 @@ the suite rather than surfacing as a subtly wrong label.
 - **Keep it single-file and dependency-light.** The value of this artifact is
   that it's one portable HTML file. Don't introduce a bundler, npm packages, or a
   framework unless explicitly asked.
-- **Chart.js is loaded from a CDN**, so the chart needs internet to draw. The
+- **Chart.js is loaded from a CDN**, pinned by SRI hash, so the chart needs
+  internet to draw. **Bumping the Chart.js version means recomputing the
+  `integrity` hash** (cdnjs publishes it at
+  `api.cdnjs.com/libraries/Chart.js/<version>?fields=sri`) — otherwise the
+  browser refuses the file and the chart silently stops loading. `npm test`
+  pins the expected version so a bump fails there first. The
   table, filtering, sorting, and exports all work fully offline. Preserve that
   split — don't make core table features depend on the network.
 - **No browser storage** was used and none is needed.

@@ -7,7 +7,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<!-- Chart.js is pinned by hash: the browser refuses to execute the file if it
+     does not match. Bumping the version REQUIRES recomputing integrity, or the
+     chart silently stops loading. A mismatch leaves Chart undefined, which
+     syncChart() already degrades to the offline placeholder. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"
+        integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG"
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer"></script>
 <style>
   :root{
     --paper:#f2efe4; --paper-2:#f8f6ee; --ink:#201e18; --ink-soft:#5b564a;

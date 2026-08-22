@@ -2,11 +2,14 @@
   "name": "tax-history",
   "version": "1.0.0",
   "private": true,
-  "description": "Verification harness for the U.S. income tax history visualizer. The page itself is a single dependency-free HTML file; this manifest exists only so `npm test` can boot it under jsdom.",
+  "description": "Verification harnesses for the U.S. income tax history visualizer. The page itself is a single dependency-free HTML file; these manifests exist only so `npm test` (jsdom) and `npm run a11y` (headless Chrome) can drive it.",
   "scripts": {
-    "test": "node test.js"
+    "test": "node test.js",
+    "a11y": "node a11y.js"
   },
   "devDependencies": {
-    "jsdom": "^22.1.0"
+    "axe-core": "^4.13.0",
+    "jsdom": "^22.1.0",
+    "puppeteer": "^23.11.1"
   }
 }

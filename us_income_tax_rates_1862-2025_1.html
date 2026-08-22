@@ -122,6 +122,12 @@
   .yr{font-family:"Spline Sans Mono",monospace;font-weight:500}
   .toprate{color:var(--oxblood);font-weight:500}
   .note{max-width:340px;font-size:12.5px;color:var(--ink-soft);line-height:1.45}
+  /* Notes run to 420 characters, which used to wrap a row over several lines
+     and wreck the ledger's rhythm. Clipped to one line instead. The clipping is
+     purely visual -- the full text stays in the DOM, so screen readers, Ctrl+F
+     and the exports are unaffected -- and `max-width:inherit` picks up whatever
+     .note is set to, including the narrower value at the mobile breakpoint. */
+  .note .clip{display:block;max-width:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .count{font-family:"Spline Sans Mono",monospace;font-size:12px;color:var(--ink-soft)}
   footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-soft);line-height:1.6}
   footer b{color:var(--ink);font-weight:500}
@@ -271,7 +277,11 @@
 
 </div>
 
-<div class="modal-overlay" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-year" hidden>
+<!-- The accessible name is set by renderModal(), not aria-labelledby: the
+     kicker is text-transform:uppercase, and Chrome folds that into the computed
+     name, so borrowing it announced "RATE SCHEDULE ... 1944" -- which some
+     screen readers spell out letter by letter. -->
+<div class="modal-overlay" id="modal" role="dialog" aria-modal="true" hidden>
   <div class="modal">
     <div class="modal-head">
       <p class="kicker" id="modal-kicker">Rate schedule</p>
@@ -1205,8 +1215,15 @@
     });
     return rows;
   }
+  /* Full text in the DOM, clipped by CSS, repeated in `title` for the hover
+     tooltip. Truncating the string here instead would hide it from assistive
+     tech and from find-in-page, and the notes are the only prose in the table. */
+  function noteCell(text){
+    const t=text||'';
+    return t ? '<span class="clip" title="'+esc(t)+'">'+esc(t)+'</span>' : '';
+  }
   function rowHTML(r){
-    if(!r.hasTax) return '<tr class="notax"><td class="yr">'+r.year+'</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="note">'+esc(r.note)+'</td></tr>';
+    if(!r.hasTax) return '<tr class="notax"><td class="yr">'+r.year+'</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="note">'+noteCell(r.note)+'</td></tr>';
     /* The row keeps its native row/cell semantics -- overriding it with
        role="button" cost assistive tech the whole table structure. The button
        lives in the first cell instead, and the row click is a mouse
@@ -1218,7 +1235,7 @@
       '<td class="num">'+r.numBrackets+'</td>'+
       '<td class="num">'+fmtUSD(r.topThreshold)+'</td>'+
       '<td class="num">'+fmtUSD(r.topThresholdReal)+'</td>'+
-      '<td class="note">'+esc(r.note)+'</td></tr>';
+      '<td class="note">'+noteCell(r.note)+'</td></tr>';
   }
   function renderTable(){
     const rows=tableRows(); lastRows=rows;
@@ -1302,6 +1319,10 @@
     const rec=YEARS.find(r=>r.year===modalState.year);
     const s=rec.statuses[modalState.status];
     document.getElementById('modal-kicker').textContent='Rate schedule · '+ST[modalState.status].long;
+    // Set here rather than in markup so it tracks the status switch, and so the
+    // name keeps its sentence casing regardless of how the kicker is styled.
+    document.getElementById('modal').setAttribute('aria-label',
+      rec.year+' rate schedule · '+ST[modalState.status].long);
     document.getElementById('modal-year').textContent=rec.year;
     document.getElementById('modal-law').textContent=rec.note||'';
     document.getElementById('modal-chips').innerHTML=STATUSES.map(st=>{

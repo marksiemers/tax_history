@@ -33,9 +33,15 @@ runs.
   work; the two confirmed bugs are now fixed). **Read it before editing the
   HTML** — it has a suggested ordering, and two items are best done before other
   work lands.
-- `test.js` — the verification harness (see "How to verify a change"). Boots the
-  page under jsdom, with and without Chart.js, and drives the interactions.
-  Run it with `npm test`; `package.json` exists only for that.
+- `test.js` — the fast harness (see "How to verify a change"). Boots the page
+  under jsdom, with and without Chart.js, and drives the interactions. `npm test`.
+  Offline, ~2s.
+- `a11y.js` — the browser harness. Drives real headless Chrome for the things
+  jsdom structurally cannot check: the computed accessibility tree, axe-core,
+  native Tab order, whether `inert` is enforced, whether the note column
+  visually clips, and whether the SRI-pinned Chart.js actually loads.
+  `npm run a11y`. Needs network and downloads a browser on first run.
+- `package.json` exists only for those two.
 
 ## Architecture of the HTML file
 
@@ -136,6 +142,11 @@ exact — keep the footer caveat if you touch this.
   filterable (search box matches year or law name),
   and paginated via `#pager` (page-size control `#per`, default 10, static in
   the markup; only `#pager-nav` is re-rendered) with a row counter `#count`.
+  **Notes are clipped to one line** by `.note .clip` — notes run to 420
+  characters and used to wrap rows over several lines. The clipping is CSS-only:
+  `noteCell()` puts the full text in the DOM and repeats it in `title` for a
+  hover tooltip, so screen readers, find-in-page and the exports all still see
+  the whole note. Don't truncate the string in JS.
 - **Bracket-detail modal** `#modal` — clicking a table row opens the full bracket
   schedule for that year; filing status can be switched inside the modal.
   Entry point: `openModal(...)`.
@@ -197,6 +208,9 @@ the suite rather than surfacing as a subtly wrong label.
   - **The rows-per-page `<select>` is static markup, not generated.**
     `renderPager` re-renders only `#pager-nav` and syncs `#per`'s value.
     Rebuilding the select would destroy the element a keyboard user is holding.
+  - **The modal's accessible name is set in `renderModal()`,** not via
+    `aria-labelledby`. Borrowing the kicker pulled its `text-transform:uppercase`
+    into the computed name, which some screen readers spell out letter by letter.
 
 ## How to verify a change
 
@@ -216,8 +230,26 @@ It boots the page **twice**: once with a stubbed Chart.js and once with no
 what enforces the "table works without the network" constraint below — if you
 touch `render()` or `buildChart()`, that pass is the one to watch.
 
-Run it after any JS change, and still open the file in a browser to eyeball the
-chart itself, which the stub cannot check.
+Run it after any JS change. Then, for anything touching markup, CSS, focus, or
+the CDN tag:
+
+```
+npm run a11y
+```
+
+`a11y.js` drives real headless Chrome. jsdom has no layout engine, no tab order
+and no `inert`, so `test.js` can only assert that the right attributes are set —
+`a11y.js` is what confirms the browser honours them. It also measures the note
+column's real overflow, runs axe-core over the page and the open dialog, and
+verifies the SRI-pinned Chart.js still loads over `file://`, which is how this
+page is normally opened. **Run it before shipping anything that touches the
+Chart.js tag, the modal, or the table markup.**
+
+Neither harness can tell you what a screen reader *says*. If you change the
+ledger's row semantics or the dialog, that still wants ten minutes with NVDA.
+
+Still open the file in a browser to eyeball the chart itself, which neither
+harness renders meaningfully.
 
 Note: `jsdom@22` is the last release that works on Node 18; newer ones are
 ESM-only and fail with `ERR_REQUIRE_ESM`.

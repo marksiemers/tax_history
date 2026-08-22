@@ -387,6 +387,36 @@ section('online (Chart.js stubbed)');
     ok(document.getElementById('per').value === '10', 'the select reflects state after re-render');
   }
 
+  section('long notes are clipped, not lost');
+  {
+    // Notes reach 420 characters. They must clip to one line visually while
+    // staying whole in the DOM -- truncating the string would hide them from
+    // assistive tech, find-in-page, and anyone copying out of the table.
+    document.getElementById('search').value = '1948';
+    fire(window, document.getElementById('search'), 'input');
+    const cell = document.querySelector('#tbody tr .note');
+    const clip = cell.querySelector('.clip');
+    ok(!!clip, 'the note is wrapped in a clip element');
+    ok(clip.textContent.length > 400, 'the full note survives in the DOM (' + clip.textContent.length + ' chars)');
+    ok(clip.getAttribute('title') === clip.textContent, 'the tooltip carries the same full text');
+    ok(!/…|\.\.\./.test(clip.textContent.slice(-3)), 'no ellipsis was baked into the text');
+
+    // no-tax rows carry notes too, and take the same path
+    document.getElementById('search').value = '1896';
+    fire(window, document.getElementById('search'), 'input');
+    const notaxClip = document.querySelector('#tbody tr.notax .note .clip');
+    ok(!!notaxClip, 'no-tax rows clip their notes the same way');
+    ok(notaxClip.getAttribute('title') === notaxClip.textContent, 'and carry the same tooltip');
+
+    // the escaping that made this safe must still hold
+    ok(!/<script/i.test(document.getElementById('tbody').innerHTML), 'note text is still escaped');
+    document.getElementById('search').value = '';
+    fire(window, document.getElementById('search'), 'input');
+    const withNotes = [...document.querySelectorAll('#tbody tr .note')].filter(td => td.textContent.trim());
+    ok(withNotes.length > 0 && withNotes.every(td => td.querySelector('.clip')),
+       'every populated note cell is clipped (' + withNotes.length + ' cells)');
+  }
+
   section('controls');
   const single = document.querySelector('#status button[data-v="single"]');
   click(window, single);

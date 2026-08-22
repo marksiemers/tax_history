@@ -258,6 +258,14 @@ reports 11 failures, reproducing both #1 and #2. `package.json` carries the lone
 dev dependency (`jsdom@22` — the last version that works on Node 18; newer
 releases are ESM-only and fail with `ERR_REQUIRE_ESM`).
 
+**Follow-up (same day):** added `a11y.js` / `npm run a11y`, which drives real
+headless Chrome for what jsdom cannot reach — the computed accessibility tree,
+axe-core, native Tab order, real `inert` enforcement, actual text overflow in
+the note column, and whether the SRI-pinned Chart.js loads over `file://`. It
+found two things `test.js` had passed: the dialog announced as bare "1862", and
+then as all-caps once labelled from the kicker. Both fixed. `puppeteer` is
+pinned to 23.x for the same Node 18 reason as jsdom.
+
 ---
 
 ## Not a problem — deliberately keep

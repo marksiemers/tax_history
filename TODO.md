@@ -5,11 +5,11 @@ below was **observed**, not inferred: the page was booted under jsdom with a
 stubbed Chart.js and driven through its interactions. Line numbers refer to
 `us_income_tax_rates_1862-2025_1.html` as of commit `7fd7139`.
 
-Nothing here has been fixed yet.
+**Fixed so far:** #1, #2, and #13 (2026-08-21). Everything else is outstanding.
 
 ## Suggested order
 
-1. **Bugs** (#1, #2) — small, contained, and #2 restores a documented invariant.
+1. ~~**Bugs** (#1, #2)~~ — done.
 2. **#3 (pretty-print the JSON)** — do this *before* any data edit, since it
    changes how every future data diff reads.
 3. **#5 (consolidate status metadata)** — do this *before* the chart-annotations
@@ -20,7 +20,7 @@ Nothing here has been fixed yet.
 
 ## Bugs
 
-### 1. Clicking a header in the bracket-detail modal crashes the page
+### 1. Clicking a header in the bracket-detail modal crashes the page — **FIXED**
 
 **Where:** line 583 (sort wiring), line 465 (`aria-sort` loop), line 434
 (`tableRows`), modal headers at line 262.
@@ -46,10 +46,10 @@ The ledger is left frozen — every subsequent render throws as well. The same
 root cause writes a meaningless `aria-sort="none"` onto all four modal headers
 (confirmed present).
 
-**Fix:** scope both the click wiring (583) and the `aria-sort` loop (465) to
-`#table thead th` rather than bare `th`.
+**Fix (applied):** both the click wiring and the `aria-sort` loop now select
+`#table thead th` rather than bare `th`, so the modal's headers are untouched.
 
-### 2. An unreachable Chart.js CDN kills the whole page, not just the chart
+### 2. An unreachable Chart.js CDN kills the whole page, not just the chart — **FIXED**
 
 **Where:** line 558 (`render()`), line 379 (`new Chart(...)`), line 10 (CDN tag).
 
@@ -64,9 +64,11 @@ sorting, and exports all work fully offline. Preserve that split — don't make
 core table features depend on the network."* The invariant is documented but not
 implemented.
 
-**Fix:** wrap the `buildChart()` call in `render()` in try/catch, and render a
-short placeholder message into `.chart-box` when Chart.js is missing. Keep the
-rest of `render()` running.
+**Fix (applied):** added `safeBuildChart()`, which returns early with a
+`.chart-fallback` placeholder in `.chart-box` when the `Chart` global is missing,
+and catches any error `buildChart()` throws otherwise. Both call sites
+(`render()` and the metric toggle) go through it, so `renderTable()` always runs.
+A `.chart-fallback` style was added next to `.chart-box`.
 
 ---
 
@@ -169,16 +171,19 @@ select once and update only its value, or restore focus after render.
 
 ## Testing
 
-### 13. Commit the jsdom harness
+### 13. Commit the jsdom harness — **FIXED**
 
 The review used a throwaway jsdom harness that caught findings #1 and #2. It
 matches the verification workflow already described in `CLAUDE.md` ("How to
 verify a change", steps 1–3) but which has no committed implementation.
 
-**Fix:** add a `test.js` that boots the page under jsdom, asserts the table
-renders both with and without a `Chart` global, and exercises sort / paginate /
-open modal / switch status / close. Note `jsdom@22` is the last version that
-works on Node 18 (newer releases are ESM-only and fail with `ERR_REQUIRE_ESM`).
+**Fix (applied):** `test.js`, run via `npm test`. It syntax-checks the app
+script, boots the page under jsdom both with a stubbed Chart.js and with no
+`Chart` global, and exercises sort / filter / page size / paginate / open modal /
+switch status / close. Confirmed non-vacuous: against the pre-fix page it
+reports 11 failures, reproducing both #1 and #2. `package.json` carries the lone
+dev dependency (`jsdom@22` — the last version that works on Node 18; newer
+releases are ESM-only and fail with `ERR_REQUIRE_ESM`).
 
 ---
 

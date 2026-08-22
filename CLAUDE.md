@@ -29,9 +29,13 @@ runs.
   significant rate change (wars, major Revenue Acts, Reagan/TRA-86, TCJA, etc.),
   with an "after-effects" note for each and a shortlist of six "headline"
   annotations. **Not yet integrated into the chart.** See "Roadmap" below.
-- `TODO.md` — outstanding review findings (two confirmed bugs, plus structural
-  and accessibility work). **Read it before editing the HTML** — it has a
-  suggested ordering, and two items are best done before other work lands.
+- `TODO.md` — outstanding review findings (structural, polish, and accessibility
+  work; the two confirmed bugs are now fixed). **Read it before editing the
+  HTML** — it has a suggested ordering, and two items are best done before other
+  work lands.
+- `test.js` — the verification harness (see "How to verify a change"). Boots the
+  page under jsdom, with and without Chart.js, and drives the interactions.
+  Run it with `npm test`; `package.json` exists only for that.
 
 ## Architecture of the HTML file
 
@@ -151,17 +155,27 @@ tag is self-contained; search it for these names.
 
 ## How to verify a change
 
-There are no automated tests. The prior workflow validated edits by:
+```
+npm install   # once — pulls jsdom, the only dev dependency
+npm test
+```
 
-1. Syntax-checking the app script: extract the last `<script>` block to a `.js`
-   file and run `node --check` on it.
-2. Running the whole script under a minimal jsdom-style DOM stub in Node to catch
-   missing element IDs / reference errors at init.
-3. Exercising interactive paths headlessly (change page size, paginate, open the
-   modal, switch status inside it, close) and asserting the DOM updated.
+`test.js` does three things, and they are the workflow: it syntax-checks the
+extracted app script, boots the whole page under jsdom to catch missing element
+IDs and reference errors at init, then drives the interactive paths (sort,
+filter, page size, paginate, open the modal, switch status inside it, close) and
+asserts the DOM updated.
 
-Reproducing at least steps 1–2 after any JS change is recommended, plus a manual
-open in a browser to eyeball the chart (which needs the CDN).
+It boots the page **twice**: once with a stubbed Chart.js and once with no
+`Chart` global, which is what an unreachable CDN looks like. The offline pass is
+what enforces the "table works without the network" constraint below — if you
+touch `render()` or `buildChart()`, that pass is the one to watch.
+
+Run it after any JS change, and still open the file in a browser to eyeball the
+chart itself, which the stub cannot check.
+
+Note: `jsdom@22` is the last release that works on Node 18; newer ones are
+ESM-only and fail with `ERR_REQUIRE_ESM`.
 
 ## Roadmap / open threads
 

@@ -6,3 +6,7 @@
 .DS_Store
 Thumbs.db
 *.swp
+
+# Test harness dependencies (the page itself has none)
+node_modules/
+package-lock.json

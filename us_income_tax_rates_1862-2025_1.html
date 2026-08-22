@@ -84,6 +84,8 @@
   .swatch{width:16px;height:3px;display:inline-block}
   .swatch.dash{height:0;border-top:3px dashed var(--pine)}
   .chart-box{position:relative;width:100%;height:390px;background:var(--paper-2);border:1px solid var(--line);padding:14px 12px 8px;margin-bottom:8px}
+  .chart-fallback{margin:0;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;
+    padding:0 24px;font-family:"Fraunces",serif;font-size:14px;font-style:italic;color:var(--ink-soft)}
   .chart-note{font-size:12px;color:var(--ink-soft);margin:0 0 34px;font-style:italic;font-family:"Fraunces",serif}
   /* ---- table ---- */
   .table-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:12px;margin-bottom:12px}
@@ -356,6 +358,17 @@
     }
   };
 
+  function chartFallback(){
+    const box=document.querySelector('.chart-box');
+    if(box) box.innerHTML='<p class="chart-fallback">The chart could not be drawn — Chart.js loads from a CDN and is unavailable offline. '+
+      'Everything below still works: the ledger, sorting, filtering, the per-year bracket schedules, and both exports.</p>';
+    const lg=document.getElementById('legend'); if(lg) lg.innerHTML='';
+    const note=document.getElementById('chart-note'); if(note) note.textContent='';
+  }
+  function safeBuildChart(){
+    if(typeof Chart==='undefined'){ chartFallback(); return; }
+    try{ buildChart(); }catch(err){ console.error('Chart rendering failed:',err); chart=null; chartFallback(); }
+  }
   function buildChart(){
     const ctx=document.getElementById('chart');
     const recs=YEARS.filter(r=>r.year>=state.lo && r.year<=state.hi);
@@ -461,7 +474,7 @@
     document.getElementById('tbody').innerHTML = slice.map(rowHTML).join('');
     document.getElementById('count').textContent = total+' years shown · '+rows.filter(r=>r.hasTax).length+' with a tax';
     renderPager(total,totalPages,start,slice.length);
-    document.querySelectorAll('th').forEach(th=>{
+    document.querySelectorAll('#table thead th').forEach(th=>{
       th.setAttribute('aria-sort', th.dataset.k===state.sortK ? (state.sortDir===1?'ascending':'descending') : 'none');
       const arr=th.querySelector('.arr'); if(arr) arr.textContent = th.dataset.k===state.sortK ? (state.sortDir===1?'▲':'▼') : '▲';
     });
@@ -555,7 +568,7 @@
   function exportJSON(){ download('us_income_tax_rates_1862-2025.json',JSON.stringify(DATA,null,2),'application/json'); }
 
   /* ---------- wiring ---------- */
-  function render(){ renderStats(); buildChart(); renderTable(); }
+  function render(){ renderStats(); safeBuildChart(); renderTable(); }
 
   document.getElementById('status').addEventListener('click',e=>{
     const b=e.target.closest('button'); if(!b)return;
@@ -567,7 +580,7 @@
     const b=e.target.closest('button'); if(!b)return;
     state.metric=b.dataset.v;
     [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',x===b));
-    buildChart();
+    safeBuildChart();
   });
   const lo=document.getElementById('lo'),hi=document.getElementById('hi');
   function syncRange(){
@@ -580,7 +593,7 @@
   }
   lo.addEventListener('input',syncRange); hi.addEventListener('input',syncRange);
   document.getElementById('search').addEventListener('input',e=>{state.q=e.target.value;state.page=1;renderTable();});
-  document.querySelectorAll('th').forEach(th=>th.addEventListener('click',()=>{
+  document.querySelectorAll('#table thead th').forEach(th=>th.addEventListener('click',()=>{
     const k=th.dataset.k;
     if(state.sortK===k) state.sortDir*=-1; else {state.sortK=k;state.sortDir=(k==='year'?1:-1);}
     state.page=1; renderTable();

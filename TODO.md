@@ -5,8 +5,8 @@ below was **observed**, not inferred: the page was booted under jsdom with a
 stubbed Chart.js and driven through its interactions. Line numbers refer to
 `us_income_tax_rates_1862-2025_1.html` as of commit `7fd7139`.
 
-**Fixed so far:** #1, #2, #3, #5, #6, and #13 (2026-08-21). Everything else is
-outstanding.
+**Fixed so far:** #1, #2, #3, #4, #5, #6, #7, and #13 (2026-08-21). Still
+outstanding: #8, #9, #10, #11, #12.
 
 ## Suggested order
 
@@ -14,7 +14,8 @@ outstanding.
 2. ~~**#3 (pretty-print the JSON)**~~ — done.
 3. ~~**#5 (consolidate status metadata)**~~ — done, together with its companion
    #6. The annotations feature is now unblocked.
-4. Everything else as convenient: #4, #7, #8, #9, #10, #11, #12.
+4. ~~#4, #7~~ — done. Still open: #8 (a decision), #9, and the accessibility
+   items #10–#12.
 
 ---
 
@@ -88,7 +89,7 @@ single line naming both the year and the status. 1 line → 676; the file grew
 3.9 KB (~1%). Verified as a pure reformat: the reparsed data compares equal to
 the original including key order. `npm test` asserts it stays pretty-printed.
 
-### 4. The chart is destroyed and rebuilt on every slider tick
+### 4. The chart is destroyed and rebuilt on every slider tick — **FIXED**
 
 **Where:** line 581 (`lo`/`hi` listen on `input`), `syncRange` → `render()` →
 `buildChart()` → `chart.destroy()` + `new Chart(...)` at 379.
@@ -97,8 +98,13 @@ the original including key order. `npm test` asserts it stays pretty-printed.
 **40 Chart constructions and 40 destroys**. On a real canvas this is the jankiest
 interaction on the page.
 
-**Fix:** mutate `chart.data` in place and call `chart.update('none')`; rebuild
-the instance only when `state.metric` changes.
+**Fix (applied):** `chartConfig()` now returns just the labels and datasets,
+separately from instance construction. `syncChart()` is the single entry point:
+it builds a `Chart` only when there isn't one or when `state.metric` changed,
+and otherwise assigns the new data onto the live instance and calls
+`chart.update('none')`. A year-range drag or a filing-status change reuses the
+instance. `npm test` replays a 40-step drag and asserts 0 builds and 0 destroys
+(it was 40 and 40).
 
 ### 5. Filing-status metadata is duplicated in four places — **FIXED**
 
@@ -134,14 +140,18 @@ asserts `COLUMNS` and the `<th data-k>` set stay in agreement.
 
 ## Correctness / polish
 
-### 7. Log-axis tick labels vanish above $30M
+### 7. Log-axis tick labels vanish above $30M — **FIXED**
 
 **Where:** line 399 — `const allowed=[1e4,3e4,1e5,3e5,1e6,3e6,1e7,3e7]`.
 
 **32 status-years** have a `topThresholdReal` above `3e7`, ranging up to
 **$120,479,616**. The top of the axis renders with no labels at all.
 
-**Fix:** add `1e8` to the allowlist, or generate ticks from the actual data range.
+**Fix (applied):** took the second option — `LOG_TICKS` generates the 1-3-10
+sequence from the actual data at load, spanning the smallest `topThresholdReal`
+to the largest, so the axis now labels up to `$300M` and cannot silently fall
+behind a data change again. `npm test` asserts the top labelled tick clears the
+data maximum.
 
 ### 8. Exports ignore the active filters
 

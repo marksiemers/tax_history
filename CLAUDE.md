@@ -123,6 +123,8 @@ exact — keep the footer caveat if you touch this.
 - **Chart** (`#chart`, Chart.js canvas) with two metrics toggled via `#metric`:
   (a) top & bottom marginal rate by year, and (b) where the top bracket *begins*,
   in 2026 dollars, on a log scale. Shaded bands mark the no-income-tax stretch.
+  The log axis labels a 1-3-10 sequence generated from the data (`LOG_TICKS`),
+  not a hardcoded list — extend the data and the axis keeps labelling itself.
 - **Filing-status selector** `#status` (mfj / single / mfs / hoh) — drives both
   chart and table.
 - **Year-range slider** — dual inputs `#lo` / `#hi` with readouts `#lo-val` /
@@ -142,9 +144,19 @@ exact — keep the footer caveat if you touch this.
 
 Key JS names to know: `STATUSES`/`ST`/`ST_KEYS` (the filing-status table —
 key, short label, long label, CSV display name, in canonical order), `COLUMNS`
-(ledger column → sort type), `safeBuildChart(...)`, `openModal(...)`,
+(ledger column → sort type), `chartConfig(...)`/`syncChart(...)`,
+`openModal(...)`,
 `renderPager(...)`. The final script tag is self-contained; search it for these
 names.
+
+**The chart instance is built once per metric.** `syncChart()` is the only
+entry point: it constructs a `Chart` when there isn't one or when
+`state.metric` changed, and otherwise pushes fresh data into the live instance
+via `updateChart()` + `chart.update('none')`. This matters because the
+year-range sliders fire `input` continuously — a drag used to mean one destroy
+and one construct per tick. If you add a control that changes what the chart
+shows, route it through `syncChart()` and keep the rebuild path for metric
+changes only. `npm test` asserts a 40-step drag builds nothing.
 
 **`STATUSES` and `COLUMNS` are the single source of truth.** Every status label,
 the canonical status order, and every column sort type is derived from them —

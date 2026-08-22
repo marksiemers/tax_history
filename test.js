@@ -70,6 +70,7 @@ function chartStub() {
   class Chart {
     constructor(canvas, config) {
       Chart.built++;
+      Chart.last = this;
       this.canvas = canvas;
       this.config = config;
       this.data = config.data;
@@ -81,7 +82,7 @@ function chartStub() {
     destroy() { Chart.destroyed++; }
     update() { Chart.updated++; }
   }
-  Chart.built = 0; Chart.destroyed = 0; Chart.updated = 0;
+  Chart.built = 0; Chart.destroyed = 0; Chart.updated = 0; Chart.last = null;
   return Chart;
 }
 
@@ -255,14 +256,63 @@ section('online (Chart.js stubbed)');
        'status ' + btn.dataset.v + ' renders (' + rows(document) + ' rows)');
   });
 
+  section('chart reuse on slider drags');
+  {
+    // Finding #4: every `input` tick used to destroy and reconstruct the chart.
+    // A drag must now mutate the live instance instead.
+    const builtBefore = window.Chart.built, destroyedBefore = window.Chart.destroyed;
+    const hi = document.getElementById('hi');
+    for (let y = 2025; y > 1985; y--) { hi.value = String(y); fire(window, hi, 'input'); }
+    ok(window.Chart.built === builtBefore,
+       'a 40-step drag builds no new chart (' + (window.Chart.built - builtBefore) + ' builds)');
+    ok(window.Chart.destroyed === destroyedBefore,
+       'a 40-step drag destroys no chart (' + (window.Chart.destroyed - destroyedBefore) + ' destroys)');
+    ok(window.Chart.updated >= 40, 'the live chart was updated instead (' + window.Chart.updated + ' updates)');
+    ok(window.Chart.last.data.labels.length === 1986 - 1862 + 1,
+       'chart data followed the range (' + window.Chart.last.data.labels.length + ' points, want 125)');
+
+    // A filing-status change also reuses the instance.
+    const b2 = window.Chart.built;
+    click(window, document.querySelector('#status button[data-v="hoh"]'));
+    ok(window.Chart.built === b2, 'changing filing status reuses the chart');
+
+    hi.value = '2025'; fire(window, hi, 'input');
+    ok(window.Chart.last.data.labels.length === 164, 'full range restored (' + window.Chart.last.data.labels.length + ')');
+  }
+
+  section('log-axis tick labels');
+  {
+    // Finding #7: the hardcoded allowlist stopped at 3e7, so the top of the
+    // axis -- 32 status-years, up to $120M -- rendered with no labels.
+    click(window, document.querySelector('#metric button[data-v="threshold"]'));
+    ok(window.Chart.built > 1, 'switching metric rebuilds the chart');
+    const y = window.Chart.last.options.scales.y;
+    ok(y.type === 'logarithmic', 'threshold metric uses a log axis');
+    const label = v => y.ticks.callback(v);
+    [1e4, 3e4, 1e5, 1e6, 1e7, 3e7, 1e8, 3e8].forEach(v => {
+      ok(label(v) !== '', 'labels ' + v + ' (' + label(v) + ')');
+    });
+    ok(label(1e8) === '$100M', '1e8 formats as $100M (' + label(1e8) + ')');
+    ok(label(2e5) === '', 'off-sequence values stay unlabelled');
+
+    // The axis must cover the largest value in the data.
+    const data = JSON.parse(src.match(/<script id="taxdata" type="application\/json">([\s\S]*?)<\/script>/)[1]);
+    const max = Math.max(...data.years.flatMap(yr => Object.values(yr.statuses).map(st => st.topThresholdReal)));
+    const labelled = [1e4,3e4,1e5,3e5,1e6,3e6,1e7,3e7,1e8,3e8,1e9].filter(v => label(v) !== '');
+    ok(Math.max(...labelled) >= max,
+       'top labelled tick clears the data max (' + Math.max(...labelled) + ' vs ' + max + ')');
+    click(window, document.querySelector('#metric button[data-v="rates"]'));
+  }
+
   section('controls');
   const single = document.querySelector('#status button[data-v="single"]');
   click(window, single);
   ok(single.getAttribute('aria-pressed') === 'true', 'filing-status selector updates');
   const metric = document.querySelectorAll('#metric button')[1];
+  const builtBeforeMetric = window.Chart.built;
   click(window, metric);
   ok(metric.getAttribute('aria-pressed') === 'true', 'metric toggle updates');
-  ok(window.Chart.built > 1, 'metric toggle rebuilds the chart');
+  ok(window.Chart.built === builtBeforeMetric + 1, 'metric toggle rebuilds the chart exactly once');
 
   const hi = document.getElementById('hi');
   hi.value = '1950';

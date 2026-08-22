@@ -134,8 +134,8 @@ exact — keep the footer caveat if you touch this.
 - **Ledger table** `#tbody` — sortable (click a `<th>`; sort key is `data-k`,
   sort type comes from the `COLUMNS` table in the script, not the markup),
   filterable (search box matches year or law name),
-  and paginated via `#pager` with a page-size control `#per` (default 10) and a
-  row counter `#count`.
+  and paginated via `#pager` (page-size control `#per`, default 10, static in
+  the markup; only `#pager-nav` is re-rendered) with a row counter `#count`.
 - **Bracket-detail modal** `#modal` — clicking a table row opens the full bracket
   schedule for that year; filing status can be switched inside the modal.
   Entry point: `openModal(...)`.
@@ -183,7 +183,20 @@ the suite rather than surfacing as a subtly wrong label.
   tokens (e.g. `--ink`, `--oxblood`, `--pine`, `--paper`) rather than hardcoding
   new colors, and keep the three-font system.
 - **Accessibility:** controls use `aria-*` attributes and roles; preserve them
-  when editing markup.
+  when editing markup. Three invariants are load-bearing and asserted by
+  `npm test`:
+  - **Ledger rows keep their native `<tr>` semantics.** The clickable control is
+    the `.expand` `<button>` in the first cell, which carries the accessible
+    name. Don't put `role="button"` or `tabindex` back on the row — that costs
+    assistive tech the row/cell relationship for the whole table. The row click
+    is a mouse convenience layered on top.
+  - **The modal traps focus.** `openModal` marks every other body child `inert` +
+    `aria-hidden`, and `modalKeydown` wraps Tab within the dialog. `closeModal`
+    lifts both before restoring focus — order matters, since focus can't land on
+    an inert element.
+  - **The rows-per-page `<select>` is static markup, not generated.**
+    `renderPager` re-renders only `#pager-nav` and syncs `#per`'s value.
+    Rebuilding the select would destroy the element a keyboard user is holding.
 
 ## How to verify a change
 

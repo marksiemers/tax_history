@@ -5,9 +5,8 @@ below was **observed**, not inferred: the page was booted under jsdom with a
 stubbed Chart.js and driven through its interactions. Line numbers refer to
 `us_income_tax_rates_1862-2025_1.html` as of commit `7fd7139`.
 
-**Fixed so far:** #1, #2, #3, #4, #5, #6, #7, #9, and #13 (2026-08-21). #8 is
-closed as a decision, no code change. Still outstanding: the accessibility items
-#10, #11, #12.
+**All findings are now closed** (2026-08-21): #1–#7 and #9–#13 fixed, #8 closed
+as a decision with no code change. Nothing outstanding.
 
 ## Suggested order
 
@@ -15,7 +14,7 @@ closed as a decision, no code change. Still outstanding: the accessibility items
 2. ~~**#3 (pretty-print the JSON)**~~ — done.
 3. ~~**#5 (consolidate status metadata)**~~ — done, together with its companion
    #6. The annotations feature is now unblocked.
-4. ~~#4, #7, #9~~ — done. Still open: the accessibility items #10–#12.
+4. ~~#4, #7, #9~~ — done, along with ~~#10, #11, #12~~. Nothing left.
 
 ---
 
@@ -202,26 +201,44 @@ recomputed or the chart silently stops loading.**
 
 ## Accessibility
 
-### 10. `<tr role="button">` breaks table semantics
+### 10. `<tr role="button">` breaks table semantics — **FIXED**
 
 **Where:** line 444 — ledger rows carry `role="button"` and `tabindex="0"`.
 
 Overriding the row role means assistive tech loses the row/cell relationship for
-the entire ledger. **Fix:** move the button role into the first cell (the
-`.expand` control already there) and drop it from the `<tr>`, keeping the row
-click as a convenience.
+the entire ledger.
 
-### 11. No focus trap in the modal
+**Fix (applied):** `role` and `tabindex` are gone from the `<tr>`. The `.expand`
+control in the first cell is now a real, focusable button carrying the
+accessible name (`View the 1944 bracket schedule`); it was previously
+`tabindex="-1" aria-hidden="true"`, i.e. deliberately hidden. Native button
+activation covers Enter and Space, so the row `keydown` shim was deleted; the
+row click survives as a mouse convenience. Added a `:focus-visible` outline for
+the button.
+
+### 11. No focus trap in the modal — **FIXED**
 
 Tab moves focus to the page behind the open dialog, and the background isn't
 `inert`. Escape handling and focus restore are already correct, so this is the
 only remaining gap.
 
-### 12. The rows-per-page `<select>` loses focus on change
+**Fix (applied):** `openModal` sets `inert` + `aria-hidden="true"` on every body
+child except the dialog, and `modalKeydown` (which replaces `escClose`, keeping
+its Escape behaviour) wraps Tab and Shift+Tab within the dialog and pulls back
+focus that has escaped. `inert` alone would do it in current browsers; the
+explicit wrap is the fallback for those without support. `closeModal` lifts both
+attributes *before* restoring focus, since focus cannot land on an inert
+element.
+
+### 12. The rows-per-page `<select>` loses focus on change — **FIXED**
 
 **Where:** `perSelect()` (469) is re-rendered as part of `renderPager`, so the
-element a keyboard user just interacted with is replaced. **Fix:** build the
-select once and update only its value, or restore focus after render.
+element a keyboard user just interacted with is replaced.
+
+**Fix (applied):** took the first option — `perSelect()` is deleted and the
+select is plain markup inside `#pager`. `renderPager` re-renders only the new
+`#pager-nav` wrapper and syncs `#per`'s value, so the element is never replaced
+and focus survives. The `<label>` gained a `for` attribute while it was open.
 
 ---
 

@@ -137,7 +137,8 @@
   .pager .pinfo{font-family:"Spline Sans Mono",monospace;font-size:12px;color:var(--ink-soft)}
   .expand{appearance:none;border:0;background:transparent;cursor:pointer;color:var(--gold);font-size:12px;padding:0 0 0 8px;line-height:1}
   tbody tr.taxrow{cursor:pointer}
-  tbody tr.taxrow:focus-visible{outline:2px solid var(--pine);outline-offset:-2px}
+  tbody tr.taxrow:has(.expand:focus-visible){outline:2px solid var(--pine);outline-offset:-2px}
+  .expand:focus-visible{outline:2px solid var(--pine);outline-offset:2px;border-radius:2px}
   /* ---- modal ---- */
   .modal-overlay{position:fixed;inset:0;background:rgba(30,28,22,.55);display:none;align-items:center;justify-content:center;padding:20px;z-index:50}
   .modal-overlay.open{display:flex}
@@ -246,7 +247,21 @@
       </table>
     </div>
     <p class="count" id="count"></p>
-    <div class="pager" id="pager"></div>
+    <div class="pager" id="pager">
+        <!-- The select is markup, not markup-generated: re-rendering it would
+             yank focus out from under whoever just used the keyboard on it. -->
+        <div class="grp">
+          <label for="per">Rows</label>
+          <select id="per" aria-label="Rows per page">
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+        <div class="grp" id="pager-nav"></div>
+      </div>
   </section>
 
   <footer>
@@ -1192,8 +1207,12 @@
   }
   function rowHTML(r){
     if(!r.hasTax) return '<tr class="notax"><td class="yr">'+r.year+'</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="note">'+esc(r.note)+'</td></tr>';
-    return '<tr class="taxrow" data-year="'+r.year+'" tabindex="0" role="button" aria-label="View '+r.year+' bracket schedule">'+
-      '<td class="yr">'+r.year+'<button class="expand" tabindex="-1" aria-hidden="true" title="View full schedule">⤢</button></td>'+
+    /* The row keeps its native row/cell semantics -- overriding it with
+       role="button" cost assistive tech the whole table structure. The button
+       lives in the first cell instead, and the row click is a mouse
+       convenience layered on top of it. */
+    return '<tr class="taxrow" data-year="'+r.year+'">'+
+      '<td class="yr">'+r.year+'<button class="expand" data-year="'+r.year+'" title="View full schedule" aria-label="View the '+r.year+' bracket schedule">⤢</button></td>'+
       '<td class="num">'+pct(r.bottomRate)+'</td>'+
       '<td class="num toprate">'+pct(r.topRate)+'</td>'+
       '<td class="num">'+r.numBrackets+'</td>'+
@@ -1217,28 +1236,25 @@
       const arr=th.querySelector('.arr'); if(arr) arr.textContent = th.dataset.k===state.sortK ? (state.sortDir===1?'▲':'▼') : '▲';
     });
   }
-  function perSelect(){
-    let s='<select id="per" aria-label="Rows per page">';
-    [10,25,50,100].forEach(o=>{ s+='<option value="'+o+'"'+(state.perPage===o?' selected':'')+'>'+o+'</option>'; });
-    s+='<option value="all"'+(state.perPage===Infinity?' selected':'')+'>All</option></select>';
-    return s;
-  }
   function renderPager(total,totalPages,start,shown){
-    const el=document.getElementById('pager');
+    /* Only the nav half is re-rendered. The select is left alone so that
+       changing it with the keyboard doesn't destroy the element that has
+       focus -- we sync its value instead of rebuilding it. */
+    const per=document.getElementById('per');
+    const want = state.perPage===Infinity ? 'all' : String(state.perPage);
+    if(per.value!==want) per.value=want;
+    const nav=document.getElementById('pager-nav');
     if(state.perPage===Infinity){
-      el.innerHTML='<div class="grp"><label>Rows</label>'+perSelect()+'</div><span class="pinfo">Showing all '+total+'</span>';
+      nav.innerHTML='<span class="pinfo">Showing all '+total+'</span>';
       return;
     }
     const from = total ? start+1 : 0, to = start+shown;
-    el.innerHTML=
-      '<div class="grp"><label>Rows</label>'+perSelect()+'</div>'+
-      '<div class="grp">'+
-        '<button class="pbtn" data-pg="first" '+(state.page<=1?'disabled':'')+'>« First</button>'+
-        '<button class="pbtn" data-pg="prev" '+(state.page<=1?'disabled':'')+'>‹ Prev</button>'+
-        '<span class="pinfo">'+from+'–'+to+' of '+total+' · page '+state.page+' / '+totalPages+'</span>'+
-        '<button class="pbtn" data-pg="next" '+(state.page>=totalPages?'disabled':'')+'>Next ›</button>'+
-        '<button class="pbtn" data-pg="last" '+(state.page>=totalPages?'disabled':'')+'>Last »</button>'+
-      '</div>';
+    nav.innerHTML=
+      '<button class="pbtn" data-pg="first" '+(state.page<=1?'disabled':'')+'>« First</button>'+
+      '<button class="pbtn" data-pg="prev" '+(state.page<=1?'disabled':'')+'>‹ Prev</button>'+
+      '<span class="pinfo">'+from+'–'+to+' of '+total+' · page '+state.page+' / '+totalPages+'</span>'+
+      '<button class="pbtn" data-pg="next" '+(state.page>=totalPages?'disabled':'')+'>Next ›</button>'+
+      '<button class="pbtn" data-pg="last" '+(state.page>=totalPages?'disabled':'')+'>Last »</button>';
   }
   function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
@@ -1250,15 +1266,38 @@
     lastFocus=document.activeElement;
     renderModal();
     const m=document.getElementById('modal'); m.hidden=false; m.classList.add('open');
+    backgroundInert(true);
     document.getElementById('modal-close').focus();
-    document.addEventListener('keydown',escClose);
+    document.addEventListener('keydown',modalKeydown);
   }
   function closeModal(){
     const m=document.getElementById('modal'); m.classList.remove('open'); m.hidden=true;
-    document.removeEventListener('keydown',escClose);
+    backgroundInert(false);
+    document.removeEventListener('keydown',modalKeydown);
     if(lastFocus && lastFocus.focus) lastFocus.focus();
   }
-  function escClose(e){ if(e.key==='Escape') closeModal(); }
+  /* Tab must not walk out of an open dialog. `inert` does this natively and
+     also hides the background from assistive tech; the explicit Tab wrap is
+     the fallback for browsers that don't support it. */
+  const FOCUSABLE='a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  function backgroundInert(on){
+    [...document.body.children].forEach(el=>{
+      if(el.id==='modal'||el.tagName==='SCRIPT') return;
+      if(on){ el.setAttribute('inert',''); el.setAttribute('aria-hidden','true'); }
+      else { el.removeAttribute('inert'); el.removeAttribute('aria-hidden'); }
+    });
+  }
+  function modalKeydown(e){
+    if(e.key==='Escape'){ closeModal(); return; }
+    if(e.key!=='Tab') return;
+    const m=document.getElementById('modal');
+    const f=[...m.querySelectorAll(FOCUSABLE)];
+    if(!f.length) return;
+    const first=f[0], last=f[f.length-1];
+    if(!m.contains(document.activeElement)){ e.preventDefault(); first.focus(); return; }
+    if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+  }
   function renderModal(){
     const rec=YEARS.find(r=>r.year===modalState.year);
     const s=rec.statuses[modalState.status];
@@ -1354,10 +1393,8 @@
   });
 
   const tbody=document.getElementById('tbody');
+  // The .expand button is a real button, so Enter and Space come for free.
   tbody.addEventListener('click',e=>{ const tr=e.target.closest('tr.taxrow'); if(tr) openModal(+tr.dataset.year); });
-  tbody.addEventListener('keydown',e=>{
-    if(e.key==='Enter'||e.key===' '){ const tr=e.target.closest('tr.taxrow'); if(tr){ e.preventDefault(); openModal(+tr.dataset.year); } }
-  });
   document.getElementById('modal-close').addEventListener('click',closeModal);
   document.getElementById('modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
   document.getElementById('modal-chips').addEventListener('click',e=>{

@@ -320,6 +320,73 @@ section('online (Chart.js stubbed)');
     click(window, document.querySelector('#metric button[data-v="rates"]'));
   }
 
+  section('table semantics (#10)');
+  {
+    const tr = document.querySelector('#tbody tr.taxrow');
+    ok(!tr.hasAttribute('role'), 'ledger rows keep their native row role');
+    ok(!tr.hasAttribute('tabindex'), 'ledger rows are not focus stops');
+    const btn = tr.querySelector('.expand');
+    ok(btn && btn.tagName === 'BUTTON', 'the first cell holds a real button');
+    ok(btn && !btn.hasAttribute('aria-hidden'), 'the button is exposed to assistive tech');
+    ok(btn && btn.getAttribute('tabindex') !== '-1', 'the button is reachable by keyboard');
+    ok(btn && /\d{4}/.test(btn.getAttribute('aria-label') || ''), 'the button names its year (' + btn.getAttribute('aria-label') + ')');
+    ok(document.querySelectorAll('#tbody tr[role="button"]').length === 0, 'no row anywhere carries role=button');
+    // activating the button (what Enter/Space do natively) opens the modal
+    click(window, btn);
+    ok(document.getElementById('modal').hidden === false, 'activating the button opens the modal');
+    click(window, document.getElementById('modal-close'));
+  }
+
+  section('modal focus trap (#11)');
+  {
+    const tr = document.querySelector('#tbody tr.taxrow');
+    const opener = tr.querySelector('.expand');
+    opener.focus();
+    click(window, opener);
+    const m = document.getElementById('modal');
+    ok(document.activeElement === document.getElementById('modal-close'), 'focus moves into the dialog on open');
+
+    const bg = [...document.body.children].filter(el => el.id !== 'modal' && el.tagName !== 'SCRIPT');
+    ok(bg.length > 0 && bg.every(el => el.hasAttribute('inert')), 'the background is inert while open');
+    ok(bg.every(el => el.getAttribute('aria-hidden') === 'true'), 'the background is hidden from assistive tech');
+
+    const f = [...m.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')];
+    ok(f.length > 1, 'the dialog has several focus stops (' + f.length + ')');
+    const first = f[0], last = f[f.length - 1];
+
+    last.focus();
+    m.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    ok(document.activeElement === first, 'Tab on the last control wraps to the first');
+
+    first.focus();
+    m.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true }));
+    ok(document.activeElement === last, 'Shift+Tab on the first control wraps to the last');
+
+    // focus that has escaped the dialog is pulled back
+    document.getElementById('search').focus();
+    document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    ok(m.contains(document.activeElement), 'Tab from outside the dialog returns focus to it');
+
+    document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    ok(m.hidden === true, 'Escape still closes');
+    ok(bg.every(el => !el.hasAttribute('inert')), 'inert is lifted on close');
+    ok(bg.every(el => !el.hasAttribute('aria-hidden')), 'aria-hidden is lifted on close');
+    ok(document.activeElement === opener, 'focus returns to the control that opened it');
+  }
+
+  section('rows-per-page keeps focus (#12)');
+  {
+    const per = document.getElementById('per');
+    per.focus();
+    per.value = '50';
+    fire(window, per, 'change');
+    ok(document.getElementById('per') === per, 'the select element is not replaced');
+    ok(document.activeElement === per, 'the select keeps focus after changing it');
+    ok(rows(document) === 50, 'and the change still applies (' + rows(document) + ' rows)');
+    per.value = '10'; fire(window, per, 'change');
+    ok(document.getElementById('per').value === '10', 'the select reflects state after re-render');
+  }
+
   section('controls');
   const single = document.querySelector('#status button[data-v="single"]');
   click(window, single);

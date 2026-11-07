@@ -1,0 +1,22 @@
+# Scope of the MIT licence in this repository
+
+The MIT licence in `LICENSE` covers the **original work in this repository** —
+the visualizer page's markup, CSS and JavaScript, the verification harnesses
+(`test.js`, `a11y.js`), and the written historical commentary in
+`tax_rate_annotations.md`.
+
+It does **not** purport to license the underlying datasets, which are the work
+of third parties and remain subject to their own terms:
+
+- **Statutory rates and brackets** — `Historical Income Tax Rates and Brackets
+  1862-2025.csv`, and the processed JSON derived from it that is embedded in
+  `us_income_tax_rates_1862-2025_1.html`. Compiled from historical
+  income-tax tables published by the **Tax Foundation** and the **IRS**.
+- **Price levels (CPI, 1913–present with pre-1913 estimates)** — used for the
+  constant-dollar conversions. **Federal Reserve Bank of Minneapolis.**
+- **Chart.js 4.4.1** — loaded at runtime from a CDN, pinned by SRI hash. MIT
+  licensed, and not redistributed here.
+
+If you intend to redistribute the bundled data rather than the code, check the
+originating publishers' terms. Attribution for both data sources appears in the
+page footer under "Sources".

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Verification harnesses for the U.S. income tax history visualizer. The page itself is a single dependency-free HTML file; these manifests exist only so `npm test` (jsdom) and `npm run a11y` (headless Chrome) can drive it.",
+  "license": "MIT",
   "scripts": {
     "test": "node test.js",
     "a11y": "node a11y.js"
